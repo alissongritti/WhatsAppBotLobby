@@ -1,0 +1,17 @@
+# Dependências do Node
+node_modules/
+
+# Sessão e Cache do WhatsApp (Não subir!)
+.wwebjs_auth/
+.wwebjs_cache/
+wwebjs_cache/
+
+# Banco de dados local 
+nicks.json
+
+# Variáveis de ambiente
+.env
+
+# Logs e arquivos de sistema
+npm-debug.log*
+.DS_Store
