@@ -1,7 +1,7 @@
 require("dotenv").config(); // Puxa as variáveis do .env ANTES de tudo
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-const fs = require("fs"); 
+const fs = require("fs");
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -116,11 +116,22 @@ client.on("message_create", async (msg) => {
     // COMANDO: DEFINIR NICK PERSONALIZADO (!meunick)
     // ==========================================
     if (comando === "!meunick") {
+      // Se ele mandou só "!meunick" sem passar um nome
       if (!parametro) {
-        await msg.reply("Como quer ser chamado? Exemplo: *!meunick Sonzera*");
+        // Verifica se o cara já tem um nick salvo no JSON
+        if (nicks[senderId]) {
+          await msg.reply(
+            `Seu nick atual é: *${nicks[senderId]}*\n\nPara mudar, mande: *!meunick NovoNome*`,
+          );
+        } else {
+          await msg.reply(
+            "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!meunick Sonzera*",
+          );
+        }
         return;
       }
 
+      // Trava de segurança para nicks gigantes
       if (parametro.length > 15) {
         await msg.reply(
           "Nick muito grande, emocionado! Escolha um com até 15 letras.",
@@ -128,6 +139,7 @@ client.on("message_create", async (msg) => {
         return;
       }
 
+      // Salva o novo nick
       nicks[senderId] = parametro;
       fs.writeFileSync("./nicks.json", JSON.stringify(nicks, null, 2));
 
