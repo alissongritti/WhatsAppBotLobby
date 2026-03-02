@@ -1,7 +1,35 @@
 require("dotenv").config(); // Puxa as variáveis do .env ANTES de tudo
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-const fs = require("fs");
+const sqlite3 = require("sqlite3");
+const { open } = require("sqlite");
+
+let db;
+
+// Função para iniciar o banco de dados
+async function iniciarBanco() {
+  db = await open({
+    filename: "./bot_database.sqlite",
+    driver: sqlite3.Database,
+  });
+
+  // Cria as tabelas se elas não existirem
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS nicks (
+      id TEXT PRIMARY KEY,
+      nome TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS estatisticas (
+      id TEXT PRIMARY KEY,
+      partidas_jogadas INTEGER DEFAULT 0,
+      arregadas INTEGER DEFAULT 0
+    );
+  `);
+  console.log("📦 Banco de dados SQLite conectado e pronto!");
+}
+
+iniciarBanco();
 
 const client = new Client({
   authStrategy: new LocalAuth(),
@@ -11,12 +39,6 @@ const client = new Client({
 });
 
 let sessoes = {};
-
-// Carrega os nicks salvos ou cria um objeto vazio se for a primeira vez
-let nicks = {};
-if (fs.existsSync("./nicks.json")) {
-  nicks = JSON.parse(fs.readFileSync("./nicks.json", "utf8"));
-}
 
 // Função auxiliar para renderizar a lista titular e os suplentes
 function gerarListaTexto(sessao) {
@@ -61,12 +83,14 @@ client.on("message_create", async (msg) => {
     const contact = await msg.getContact();
     const senderId = contact.id._serialized;
 
-    // A MÁGICA: Puxa o nick salvo ou usa o do Whats
-    const nome = nicks[senderId] || contact.pushname || contact.number;
+    // Busca o nick no SQLite
+    const nickRow = await db.get("SELECT nome FROM nicks WHERE id = ?", [
+      senderId,
+    ]);
+    const nome = nickRow ? nickRow.nome : contact.pushname || contact.number;
 
     const textoMensagem = msg.body.toLowerCase().trim();
     const groupId = chat.id._serialized;
-
     let comando = textoMensagem;
     let parametro = "";
 
@@ -74,7 +98,7 @@ client.on("message_create", async (msg) => {
     if (textoMensagem.startsWith("!lobby")) {
       comando = "!lobby";
       parametro = textoMensagem.replace("!lobby", "").trim();
-    } else if (textoMensagem === "!status") {
+    } else if (textoMensagem === "!status" || textoMensagem === "!lista") {
       comando = "!status";
     } else if (textoMensagem.startsWith("!mix")) {
       comando = "!mix";
@@ -87,8 +111,7 @@ client.on("message_create", async (msg) => {
       textoMensagem.startsWith("!horas") ||
       textoMensagem.startsWith("!hrs")
     ) {
-      comando = "!horario"; // Normaliza para o resto do código entender
-      // Descobre qual das variações o usuário digitou para cortar certinho
+      comando = "!horario";
       let aliasUsado = ["!horário", "!horario", "!horas", "!hrs"].find((c) =>
         textoMensagem.startsWith(c),
       );
@@ -99,11 +122,10 @@ client.on("message_create", async (msg) => {
       textoMensagem.startsWith("!titulo") ||
       textoMensagem.startsWith("!título")
     ) {
-      comando = "!titulo"; // Normaliza
+      comando = "!titulo";
       let aliasUsado = ["!título", "!titulo"].find((c) =>
         textoMensagem.startsWith(c),
       );
-      // Preserva a formatação original (maiúsculas/minúsculas) cortando o tamanho exato do alias
       parametro = msg.body.substring(aliasUsado.length).trim();
     }
     // COMANDO DE NICK
@@ -113,15 +135,44 @@ client.on("message_create", async (msg) => {
     }
 
     // ==========================================
-    // COMANDO: DEFINIR NICK PERSONALIZADO (!meunick)
+    // 🪄 LIMPEZA DE MENÇÕES (Evita ID feio no título)
     // ==========================================
-    if (comando === "!meunick") {
+    if (parametro) {
+      const mentions = await msg.getMentions();
+      if (mentions && mentions.length > 0) {
+        // Encontra todos os padrões de "@numeroGigante" no texto
+        const IDsNoTexto = parametro.match(/@\d+/g);
+
+        if (IDsNoTexto) {
+          for (let i = 0; i < IDsNoTexto.length; i++) {
+            let m = mentions[i];
+            if (m) {
+              // Busca no banco se o mencionado tem nick
+              const mRow = await db.get("SELECT nome FROM nicks WHERE id = ?", [
+                m.id._serialized,
+              ]);
+              const mNome = mRow
+                ? mRow.nome
+                : m.pushname || m.name || "Jogador";
+
+              // Troca o ID bizarro pelo Nick bonito
+              parametro = parametro.replace(IDsNoTexto[i], mNome);
+            }
+          }
+        }
+      }
+    }
+
+    // ==========================================
+    // COMANDO: DEFINIR NICK PERSONALIZADO (!meunick, !nick)
+    // ==========================================
+    if (comando === "!meunick" || comando === "!nick") {
       // Se ele mandou só "!meunick" sem passar um nome
       if (!parametro) {
-        // Verifica se o cara já tem um nick salvo no JSON
-        if (nicks[senderId]) {
+        // 🚨 CORREÇÃO: Agora verifica o nickRow do SQLite em vez do antigo JSON 🚨
+        if (nickRow) {
           await msg.reply(
-            `Seu nick atual é: *${nicks[senderId]}*\n\nPara mudar, mande: *!meunick NovoNome*`,
+            `Seu nick atual é: *${nickRow.nome}*\n\nPara mudar, mande: *!meunick NovoNome*`,
           );
         } else {
           await msg.reply(
@@ -139,9 +190,11 @@ client.on("message_create", async (msg) => {
         return;
       }
 
-      // Salva o novo nick
-      nicks[senderId] = parametro;
-      fs.writeFileSync("./nicks.json", JSON.stringify(nicks, null, 2));
+      // Salva ou atualiza o novo nick no banco de dados
+      await db.run("INSERT OR REPLACE INTO nicks (id, nome) VALUES (?, ?)", [
+        senderId,
+        parametro,
+      ]);
 
       await msg.reply(
         `✅ Nick atualizado! A partir de agora vou te chamar de *${parametro}*.`,
@@ -150,9 +203,13 @@ client.on("message_create", async (msg) => {
     }
 
     // ==========================================
-    // COMANDO: LISTAR COMANDOS (!comandos)
+    // COMANDO: LISTAR COMANDOS (!comandos , !help , !ajuda)
     // ==========================================
-    if (comando === "!comandos") {
+    if (
+      comando === "!comandos" ||
+      comando === "!help" ||
+      comando === "!ajuda"
+    ) {
       let textoCmd = `🤖 *COMANDOS DO BOT* 🤖\n\n`;
       textoCmd += `🎮 *Criação de Partidas:*\n`;
       textoCmd += `*!lobby [hora]* - Cria fila para 5 jogadores.\n`;
@@ -172,9 +229,9 @@ client.on("message_create", async (msg) => {
     }
 
     // ==========================================
-    // COMANDO: VER STATUS (!status)
+    // COMANDO: VER STATUS (!status, !lista)
     // ==========================================
-    if (comando === "!status") {
+    if (comando === "!status" || comando === "!lista") {
       // Se não tem nada rolando
       if (!sessoes[groupId]) {
         await msg.reply(
@@ -188,7 +245,7 @@ client.on("message_create", async (msg) => {
       let vagasRestantes = sessao.maxPlayers - sessao.jogadores.length;
 
       let textoStatus = `ℹ️ *STATUS DA PARTIDA* ℹ️\n`;
-      textoStatus += `🎮 *${sessao.titulo}*\n`;
+      textoStatus += `🎮 *Lobby: ${sessao.titulo}*\n`;
       if (sessao.horario) textoStatus += `⏰ *Horário:* ${sessao.horario}\n`;
       textoStatus += `\n${gerarListaTexto(sessao)}`;
 
@@ -207,18 +264,35 @@ client.on("message_create", async (msg) => {
     // ==========================================
     if (comando === "!lobby" || comando === "!mix" || comando === "!eu") {
       if (!sessoes[groupId] && (comando === "!lobby" || comando === "!mix")) {
+        let horarioDefinido = "";
+        let tituloDefinido = comando === "!mix" ? "MIX 5x5" : "LOBBY";
+
+        if (parametro) {
+          let primeiraPalavra = parametro.split(" ")[0];
+
+          if (/^\d/.test(primeiraPalavra)) {
+            horarioDefinido = primeiraPalavra;
+            let resto = parametro.substring(primeiraPalavra.length).trim();
+            if (resto) {
+              tituloDefinido = resto.toUpperCase();
+            }
+          } else {
+            tituloDefinido = parametro.toUpperCase();
+          }
+        }
+
         sessoes[groupId] = {
           jogadores: [{ nome: nome, id: senderId }],
           suplentes: [],
           criador: senderId,
-          horario: parametro,
-          titulo: comando === "!mix" ? "MIX 5x5" : "LOBBY",
+          horario: horarioDefinido,
+          titulo: tituloDefinido,
           maxPlayers: comando === "!mix" ? 10 : 5,
           tipo: comando === "!mix" ? "MIX" : "LOBBY",
         };
 
         let sessao = sessoes[groupId];
-        let texto = `🎮 *${sessao.titulo} ABERTA* 🎮\n`;
+        let texto = `🎮 *Lobby: ${sessao.titulo} - ABERTA* 🎮\n`;
         if (sessao.horario) texto += `⏰ *Horário:* ${sessao.horario}\n`;
         texto += `\n${gerarListaTexto(sessao)}`;
         texto += `\nMande *!eu* para entrar, ou *!sair* para quitar.`;
@@ -248,7 +322,7 @@ client.on("message_create", async (msg) => {
           let vagasRestantes = sessao.maxPlayers - sessao.jogadores.length;
 
           if (vagasRestantes === 0) {
-            let textoFinal = `🔥 *${sessao.titulo} FECHADA! BORA!* 🔥\n`;
+            let textoFinal = `🔥 *Lobby: ${sessao.titulo} FECHADA! BORA!* 🔥\n`;
             if (sessao.horario)
               textoFinal += `⏰ *Horário:* ${sessao.horario}\n`;
             textoFinal += `\n${gerarListaTexto(sessao)}`;
@@ -261,7 +335,7 @@ client.on("message_create", async (msg) => {
 
             await chat.sendMessage(textoFinal);
           } else {
-            let textoParcial = `🎮 *${sessao.titulo} (PARCIAL)* 🎮\n`;
+            let textoParcial = `🎮 *Lobby: ${sessao.titulo} - (PARCIAL)* 🎮\n`;
             if (sessao.horario)
               textoParcial += `⏰ *Horário:* ${sessao.horario}\n`;
             textoParcial += `\n${gerarListaTexto(sessao)}`;
@@ -286,7 +360,7 @@ client.on("message_create", async (msg) => {
     }
 
     // ==========================================
-    // COMANDO: SAIR (COM PROMOÇÃO DE SUPLENTE)
+    // COMANDO: SAIR (COM PROMOÇÃO E PASSAGEM DE COROA)
     // ==========================================
     else if (comando === "!sair" && sessoes[groupId]) {
       let sessao = sessoes[groupId];
@@ -308,23 +382,43 @@ client.on("message_create", async (msg) => {
       }
 
       if (indexTime !== -1) {
-        sessao.jogadores.splice(indexTime, 1);
+        sessao.jogadores.splice(indexTime, 1); // Tira o cara da lista
 
+        // Puxa o suplente, se existir
+        let promovido = null;
+        if (sessao.suplentes.length > 0) {
+          promovido = sessao.suplentes.shift();
+          sessao.jogadores.push(promovido);
+        }
+
+        // 👑 VERIFICAÇÃO DE ADMIN (Passa a coroa pro Top 1)
+        let coroaPassou = false;
+        let novoAdminNome = "";
+        if (sessao.criador === senderId && sessao.jogadores.length > 0) {
+          sessao.criador = sessao.jogadores[0].id;
+          coroaPassou = true;
+          novoAdminNome = sessao.jogadores[0].nome;
+        }
+
+        // Monta o texto de resposta
         let textoSair = `🎮 *${sessao.titulo} ATUALIZADA* 🎮\n`;
         if (sessao.horario) textoSair += `⏰ *Horário:* ${sessao.horario}\n`;
 
-        if (sessao.suplentes.length > 0) {
-          let promovido = sessao.suplentes.shift();
-          sessao.jogadores.push(promovido);
+        textoSair += `\n${gerarListaTexto(sessao)}`;
 
-          textoSair += `\n${gerarListaTexto(sessao)}`;
+        if (promovido) {
           textoSair += `\n${nome} arregou.`;
-          textoSair += `\n🔄 *${promovido.nome} subiu do banco de reservas para o time titular!*`;
+          textoSair += `\n🔄 *${promovido.nome} subiu do banco de reservas!*`;
         } else {
-          textoSair += `\n${gerarListaTexto(sessao)}`;
           textoSair += `\n${nome} arregou. Restam ${sessao.maxPlayers - sessao.jogadores.length} vagas agora.`;
         }
 
+        // Se passou a coroa, avisa a galera
+        if (coroaPassou) {
+          textoSair += `\n👑 *A coroa passou!* ${novoAdminNome} agora é o dono da sala.`;
+        }
+
+        // Verifica se a sala morreu
         if (sessao.jogadores.length === 0) {
           delete sessoes[groupId];
           await chat.sendMessage(
@@ -416,7 +510,7 @@ client.on("message_create", async (msg) => {
       let sessao = sessoes[groupId];
 
       let textoTitulo = `📝 *TÍTULO ATUALIZADO* 📝\n`;
-      textoTitulo += `Agora é: *${sessao.titulo}*\n\n`;
+      textoTitulo += `Lobby: *${sessao.titulo}*\n\n`;
       if (sessao.horario) textoTitulo += `⏰ *Horário:* ${sessao.horario}\n\n`;
       textoTitulo += gerarListaTexto(sessao);
       textoTitulo += `\nRestam ${sessao.maxPlayers - sessao.jogadores.length} vagas!`;
