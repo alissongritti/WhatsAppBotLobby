@@ -28,6 +28,10 @@ const COMMAND_MAP = {
   "!status": miscCmd.status,
 
   "!comandos": miscCmd.comandos,
+
+  "!silenciar": miscCmd.silenciar,
+
+  "!notificar": miscCmd.notificar,
 };
 
 async function router(context) {

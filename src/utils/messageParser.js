@@ -26,6 +26,8 @@ const COMMAND_ALIASES = {
   "!comandos": "!comandos",
   "!help": "!comandos",
   "!ajuda": "!comandos",
+  "!silenciar": "!silenciar",
+  "!notificar": "!notificar",
 };
 
 async function parseMessage(msg, chat) {

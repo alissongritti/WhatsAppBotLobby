@@ -40,6 +40,10 @@ async function iniciarBanco() {
       papel TEXT DEFAULT 'TITULAR',
       FOREIGN KEY(partida_id) REFERENCES partidas(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS jogadores_silenciados (
+      id TEXT PRIMARY KEY
+    );
   `);
 
   await db.exec("PRAGMA foreign_keys = ON;");

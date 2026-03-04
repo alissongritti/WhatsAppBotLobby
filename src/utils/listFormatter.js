@@ -1,15 +1,23 @@
 const { getDb } = require("../database");
-const { getClient } = require("../bot");
 
 async function resolverNomeJogador(jogadorId) {
   const db = getDb();
-  const nickRow = await db.get("SELECT nome FROM nicks WHERE id = ?", [jogadorId]);
+
+  // 1. Tenta achar o Nick no banco de dados primeiro
+  const nickRow = await db.get("SELECT nome FROM nicks WHERE id = ?", [
+    jogadorId,
+  ]);
   if (nickRow) return nickRow.nome;
 
+  // 2. Se não tem Nick, busca o nome do WhatsApp
   try {
+    // 🔥 O TRUQUE AQUI: Lazy Loading! Importa o bot só na hora exata de usar.
+    const { getClient } = require("../bot");
+
     const contact = await getClient().getContactById(jogadorId);
     return contact.pushname || contact.name || contact.number;
   } catch (e) {
+    console.error("⚠️ Erro ao buscar contato no WhatsApp:", e.message);
     return "Jogador";
   }
 }
@@ -20,21 +28,21 @@ async function gerarListaTexto(partidaId, maxPlayers) {
   // Busca titulares e suplentes em apenas 2 queries
   const jogadores = await db.all(
     "SELECT jogador_id FROM jogadores_partida WHERE partida_id = ? AND papel = 'TITULAR' ORDER BY id ASC",
-    [partidaId]
+    [partidaId],
   );
   const suplentes = await db.all(
     "SELECT jogador_id FROM jogadores_partida WHERE partida_id = ? AND papel = 'SUPLENTE' ORDER BY id ASC",
-    [partidaId]
+    [partidaId],
   );
 
-  // Busca todos os nicks de uma vez só
+  // Busca todos os nicks de uma vez só (Performance)
   const todosIds = [...jogadores, ...suplentes].map((j) => j.jogador_id);
   const placeholders = todosIds.map(() => "?").join(",");
   const nicksRows =
     todosIds.length > 0
       ? await db.all(
           `SELECT id, nome FROM nicks WHERE id IN (${placeholders})`,
-          todosIds
+          todosIds,
         )
       : [];
 
