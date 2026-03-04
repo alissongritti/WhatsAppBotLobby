@@ -37,6 +37,8 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 | `!titulo [nome]`  | Altera o título da partida (Apenas o criador).                                                               |
 | `!cancelar`       | Derruba a lista atual e reseta a sessão (Apenas o criador).                                                  |
 | `!start`          | Conclui a partida, libera o ID da sala para uso futuro e contabiliza +1 jogo nas estatísticas dos titulares. |
+| `!silenciar`      | Não receberá notificação quando uma lobby for criada.                                                        |
+| `!notificar`      | Reativa a notificação quando uma lobby for criada.                                                           |
 | `!comandos`       | Exibe o menu de ajuda no chat.                                                                               |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
