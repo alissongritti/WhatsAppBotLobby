@@ -4,7 +4,7 @@ async function getPartidasAbertas(groupId) {
   const db = getDb();
   return db.all(
     "SELECT * FROM partidas WHERE group_id = ? AND status = 'ABERTA' ORDER BY numero_lobby ASC",
-    [groupId]
+    [groupId],
   );
 }
 
@@ -12,7 +12,7 @@ async function getPartidaPorLobby(groupId, numeroLobby) {
   const db = getDb();
   return db.get(
     "SELECT * FROM partidas WHERE numero_lobby = ? AND group_id = ? AND status = 'ABERTA'",
-    [numeroLobby, groupId]
+    [numeroLobby, groupId],
   );
 }
 
@@ -20,7 +20,7 @@ async function getPartidaDoAdmin(groupId, senderId) {
   const db = getDb();
   return db.get(
     "SELECT * FROM partidas WHERE group_id = ? AND criador_id = ? AND status = 'ABERTA'",
-    [groupId, senderId]
+    [groupId, senderId],
   );
 }
 
@@ -30,7 +30,7 @@ async function getPartidaDoJogador(groupId, senderId) {
     `SELECT p.* FROM partidas p
      JOIN jogadores_partida jp ON p.id = jp.partida_id
      WHERE p.group_id = ? AND jp.jogador_id = ? AND p.status = 'ABERTA'`,
-    [groupId, senderId]
+    [groupId, senderId],
   );
 }
 
@@ -40,7 +40,7 @@ async function getPartidasDoJogador(groupId, senderId) {
     `SELECT p.* FROM partidas p
      JOIN jogadores_partida jp ON p.id = jp.partida_id
      WHERE p.group_id = ? AND jp.jogador_id = ? AND p.status = 'ABERTA'`,
-    [groupId, senderId]
+    [groupId, senderId],
   );
 }
 
@@ -48,7 +48,7 @@ async function contarTitulares(partidaId) {
   const db = getDb();
   const row = await db.get(
     "SELECT COUNT(id) as count FROM jogadores_partida WHERE partida_id = ? AND papel = 'TITULAR'",
-    [partidaId]
+    [partidaId],
   );
   return row.count;
 }
@@ -57,7 +57,7 @@ async function gerarNumeroLobbyDisponivel(groupId) {
   const db = getDb();
   const lobbiesAtivas = await db.all(
     "SELECT numero_lobby FROM partidas WHERE group_id = ? AND status = 'ABERTA' ORDER BY numero_lobby ASC",
-    [groupId]
+    [groupId],
   );
   let numero = 1;
   for (const lobby of lobbiesAtivas) {
@@ -67,13 +67,21 @@ async function gerarNumeroLobbyDisponivel(groupId) {
   return numero;
 }
 
-async function criarPartida({ groupId, senderId, titulo, horario, tipo, maxPlayers, numeroLobby }) {
+async function criarPartida({
+  groupId,
+  senderId,
+  titulo,
+  horario,
+  tipo,
+  maxPlayers,
+  numeroLobby,
+}) {
   const db = getDb();
 
   return db.run(
     `INSERT INTO partidas (group_id, criador_id, titulo, horario, tipo, max_players, numero_lobby)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [groupId, senderId, titulo, horario, tipo, maxPlayers, numeroLobby]
+    [groupId, senderId, titulo, horario, tipo, maxPlayers, numeroLobby],
   );
 }
 
@@ -84,17 +92,25 @@ async function cancelarPartida(partidaId) {
 
 async function atualizarHorario(partidaId, horario) {
   const db = getDb();
-  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [horario, partidaId]);
+  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [
+    horario,
+    partidaId,
+  ]);
 }
 
 async function atualizarTitulo(partidaId, titulo) {
   const db = getDb();
-  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [titulo, partidaId]);
+  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [
+    titulo,
+    partidaId,
+  ]);
 }
 
 async function concluirPartida(partidaId) {
   const db = getDb();
-  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [partidaId]);
+  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [
+    partidaId,
+  ]);
 }
 
 async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
@@ -104,7 +120,22 @@ async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
      FROM jogadores_partida jp
      JOIN partidas p ON jp.partida_id = p.id
      WHERE p.group_id = ? AND jp.papel = 'SUPLENTE' AND p.status = 'ABERTA' AND p.id != ?`,
-    [groupId, partidaIdAtual]
+    [groupId, partidaIdAtual],
+  );
+}
+
+async function getTodasPartidasComHorario() {
+  const db = getDb();
+  // Busca todas as salas abertas que têm um horário preenchido
+  return db.all(
+    "SELECT * FROM partidas WHERE status = 'ABERTA' AND horario IS NOT NULL AND horario != ''",
+  );
+}
+
+async function limparPartidasEsquecidas() {
+  const db = getDb();
+  await db.run(
+    "UPDATE partidas SET status = 'CANCELADA' WHERE status = 'ABERTA'",
   );
 }
 
@@ -122,4 +153,6 @@ module.exports = {
   atualizarTitulo,
   concluirPartida,
   getSuplentesDeOutrasPartidas,
+  getTodasPartidasComHorario,
+  limparPartidasEsquecidas,
 };
