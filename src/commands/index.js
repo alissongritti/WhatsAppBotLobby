@@ -33,7 +33,7 @@ const COMMAND_MAP = {
 
   "!notificar": miscCmd.notificar,
 
-  "!kick": playerCmd.kickar,
+  "!kick": playerCmd.kick,
 };
 
 async function router(context) {
