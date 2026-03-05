@@ -6,8 +6,6 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 
 ## 🔥 Principais Funcionalidades
 
-🔥 Principais Funcionalidades
-
 - **Fila Dinâmica e Transbordo Inteligente:** Criação de Lobbies (5 vagas) ou Mixes (10 vagas). Se a sala encher, os próximos vão para a fila de espera (suplentes). Se um titular sair (!sair), o bot promove o primeiro suplente automaticamente e avisa o grupo.
 
 - **Motor de Tempo Autônomo (Cron Jobs):** O bot monitora o relógio em segundo plano e dispara um alarme marcando os titulares no minuto exato marcado para a partida.
@@ -52,6 +50,7 @@ _(Nota: O bot possui tratamento de strings para aceitar variações naturais com
 - [whatsapp-web.js](https://wwebjs.dev/) (Integração com o WhatsApp)
 - SQLite (Banco de dados leve e rápido)
 - qrcode-terminal (Geração do QR Code de autenticação no terminal)
+- Linux/Ubuntu (Ambiente)
 
 ## 🚀 Como instalar e rodar na sua máquina
 
