@@ -24,21 +24,22 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 
 ## 🛠️ Tabela de Comandos
 
-| Comando           | Descrição                                                                                                    |
-| :---------------- | :----------------------------------------------------------------------------------------------------------- |
-| `!lobby [hora]`   | Abre uma sala com 5 vagas. O horário é opcional (ex: `!lobby 21h`).                                          |
-| `!mix [hora]`     | Abre uma sala 5x5 com 10 vagas.                                                                              |
-| `!eu`             | Confirma sua presença no time titular ou entra na fila de suplentes.                                         |
-| `!sair`           | Remove seu nome da partida e passa a vaga pro próximo.                                                       |
-| `!meunick [nome]` | Cadastra ou altera o seu nick exibido nas listas do bot.                                                     |
-| `!status`         | Espia o painel da partida atual sem precisar entrar nela.                                                    |
-| `!horario [hora]` | Altera o horário da partida (Apenas o criador).                                                              |
-| `!titulo [nome]`  | Altera o título da partida (Apenas o criador).                                                               |
-| `!cancelar`       | Derruba a lista atual e reseta a sessão (Apenas o criador).                                                  |
-| `!start`          | Conclui a partida, libera o ID da sala para uso futuro e contabiliza +1 jogo nas estatísticas dos titulares. |
-| `!silenciar`      | Não receberá notificação quando uma lobby for criada.                                                        |
-| `!notificar`      | Reativa a notificação quando uma lobby for criada.                                                           |
-| `!comandos`       | Exibe o menu de ajuda no chat.                                                                               |
+| Comando                      | Descrição                                                                                                    |
+| :--------------------------- | :----------------------------------------------------------------------------------------------------------- |
+| `!lobby [hora]`              | Abre uma sala com 5 vagas. O horário é opcional (ex: `!lobby 21h`).                                          |
+| `!mix [hora]`                | Abre uma sala 5x5 com 10 vagas.                                                                              |
+| `!eu`                        | Confirma sua presença no time titular ou entra na fila de suplentes.                                         |
+| `!sair`                      | Remove seu nome da partida e passa a vaga pro próximo.                                                       |
+| `!meunick [nome]`            | Cadastra ou altera o seu nick exibido nas listas do bot.                                                     |
+| `!status`                    | Espia o painel da partida atual sem precisar entrar nela.                                                    |
+| `!horario [hora]`            | Altera o horário da partida (Apenas o criador).                                                              |
+| `!titulo [nome]`             | Altera o título da partida (Apenas o criador).                                                               |
+| `!cancelar`                  | Derruba a lista atual e reseta a sessão (Apenas o criador).                                                  |
+| `!start`                     | Conclui a partida, libera o ID da sala para uso futuro e contabiliza +1 jogo nas estatísticas dos titulares. |
+| `!silenciar`                 | Não receberá notificação quando uma lobby for criada.                                                        |
+| `!notificar`                 | Reativa a notificação quando uma lobby for criada.                                                           |
+| `!kickar [posição na lista]` | Remove jogador que não compareceu na lobby.                                                                  |
+| `!comandos`                  | Exibe o menu de ajuda no chat.                                                                               |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
 
