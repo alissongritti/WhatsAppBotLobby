@@ -202,4 +202,137 @@ async function resolverPartidaAlvo({ msg, parametro, groupId, acao }) {
   return null;
 }
 
-module.exports = { entrar, sair };
+async function kickar({ msg, chat, parametro, senderId, groupId }) {
+  if (!parametro) {
+    await msg.reply(
+      "⚠️ Formato inválido. Use *!kick [posição]*.\nExemplo: *!kick 2*",
+    );
+    return;
+  }
+
+  const posicao = parseInt(parametro);
+  if (isNaN(posicao) || posicao < 1) {
+    await msg.reply(
+      "⚠️ Posição inválida. Digite um número válido. Exemplo: *!kick 2*",
+    );
+    return;
+  }
+
+  // 1. Pega as partidas abertas no grupo
+  const abertas = await partidaService.getPartidasAbertas(groupId);
+  if (abertas.length === 0) {
+    await msg.reply("❌ Nenhuma lobby aberta no momento para dar kick.");
+    return;
+  }
+
+  let partidaAlvo = null;
+
+  if (abertas.length === 1) {
+    partidaAlvo = abertas[0];
+  } else {
+    // Se tem mais de uma, acha a que o usuário logado é o criador
+    partidaAlvo = abertas.find((p) => p.criador_id === senderId);
+
+    if (!partidaAlvo) {
+      await msg.reply(
+        "⚠️ Temos múltiplas lobbies abertas. O comando !kick atualmente remove apenas da lobby que você criou.",
+      );
+      return;
+    }
+  }
+
+  // 2. Checagem Dupla de Permissão (Criador ou Admin do Grupo)
+  const isCriador = partidaAlvo.criador_id === senderId;
+  let isGroupAdmin = false;
+  if (chat.isGroup) {
+    const participant = chat.participants.find(
+      (p) => p.id._serialized === senderId,
+    );
+    isGroupAdmin =
+      participant && (participant.isAdmin || participant.isSuperAdmin);
+  }
+
+  if (!isCriador && !isGroupAdmin) {
+    await msg.reply(
+      "⛔ Sem moral! Apenas o dono da lobby ou administradores do grupo podem dar kick.",
+    );
+    return;
+  }
+
+  if (posicao > partidaAlvo.max_players) {
+    await msg.reply(
+      `⚠️ Posição inválida. Essa partida só tem ${partidaAlvo.max_players} vagas.`,
+    );
+    return;
+  }
+
+  // 3. Busca a lista de TITULARES atuais
+  const titulares = await jogadorService.getTitulares(partidaAlvo.id);
+
+  // Lembre-se: Arrays começam no zero
+  const indiceAlvo = posicao - 1;
+
+  if (!titulares[indiceAlvo]) {
+    await msg.reply(
+      `⚠️ Não tem ninguém ocupando a vaga ${posicao} no momento.`,
+    );
+    return;
+  }
+
+  const jogadorAlvo = titulares[indiceAlvo];
+
+  // Impede que o admin dê um kick nele mesmo (pra isso ele usa o !sair)
+  if (jogadorAlvo.jogador_id === senderId) {
+    await msg.reply("Você não pode kickar a si mesmo! Use o comando *!sair*.");
+    return;
+  }
+
+  // 4. Executa a remoção do jogador
+  const registro = await jogadorService.getRegistroJogador(
+    partidaAlvo.id,
+    jogadorAlvo.jogador_id,
+  );
+  if (!registro) {
+    await msg.reply("⚠️ Erro ao encontrar o registro do jogador.");
+    return;
+  }
+  await jogadorService.removerJogador(registro.id);
+
+  // Pega o nome do cara que tomou kick pra avisar no grupo
+  const nickKickado = await jogadorService.getNick(jogadorAlvo.jogador_id);
+  const nomeKickado = nickKickado ? nickKickado.nome : "Jogador";
+
+  // 5. Promove suplente se houver (Reaproveitado do seu !sair)
+  const promovidoId = await jogadorService.promoverPrimeiroSuplente(
+    partidaAlvo.id,
+  );
+  let promovidoNome = null;
+  if (promovidoId) {
+    const nickSup = await jogadorService.getNick(promovidoId);
+    promovidoNome = nickSup ? nickSup.nome : "Jogador";
+  }
+
+  // 6. Monta a mensagem final do grupo
+  let textoKick = `👢 *KICK EFETUADO!* 👢\n`;
+  textoKick += `${nomeKickado} foi removido da posição ${posicao} por um Admin.\n\n`;
+
+  textoKick += `🎮 *${partidaAlvo.tipo} #${partidaAlvo.numero_lobby}: ${partidaAlvo.titulo} ATUALIZADA*\n`;
+  if (partidaAlvo.horario)
+    textoKick += `⏰ *Horário:* ${partidaAlvo.horario}\n`;
+
+  // O gerarListaTexto já está importado lá no topo do seu arquivo
+  textoKick += `\n${await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players)}`;
+
+  if (promovidoNome) {
+    textoKick += `\n🔄 *A fila andou! ${promovidoNome} subiu do banco de reservas!*`;
+  } else {
+    const numTitularesAtual = await partidaService.contarTitulares(
+      partidaAlvo.id,
+    );
+    textoKick += `\nRestam ${partidaAlvo.max_players - numTitularesAtual} vagas agora. Mande *!eu ${partidaAlvo.numero_lobby}* para entrar!`;
+  }
+
+  await chat.sendMessage(textoKick);
+}
+
+module.exports = { entrar, sair, kickar };
