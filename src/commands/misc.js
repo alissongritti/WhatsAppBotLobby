@@ -64,7 +64,7 @@ async function comandos({ chat }) {
     `🤖 *COMANDOS DO BOT* 🤖\n\n` +
     `🎮 *Criação de Partidas:*\n*!lobby [hora]* - Cria fila para 5 jogadores.\n*!mix [hora]* - Cria um 5x5 para 10 jogadores.\n\n` +
     `👤 *Interação:*\n*!eu* - Entra na lista.\n*!sair* - Sai da lista.\n*!status* - Mostra as listas atuais.\n*!nick [nome]* - Muda seu nome. \n*!silenciar* - Não receberá notificação quando uma lobby for criada.\n*!notificar* - Reativa a notificação quando uma lobby for criada.\n\n` +
-    `⚙️ *Gerenciamento:*\n*!horario [hora]* - Atualiza o horário.\n*!titulo [nome]* - Atualiza o título.\n*!start* - Fecha a lista e dá +1 ponto de estatística aos titulares.\n*!cancelar* - Derruba a lista.`;
+    `⚙️ *Gerenciamento:*\n*!horario [hora]* - Atualiza o horário.\n*!titulo [nome]* - Atualiza o título.\n*!start* - Fecha a lista e dá +1 ponto de estatística aos titulares.\n*!cancelar* - Derruba a lista.\n*!kickar [posição na lista] - Remove jogador que não compareceu na lobby.* - `;
 
   await chat.sendMessage(texto);
 }

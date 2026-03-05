@@ -32,6 +32,8 @@ const COMMAND_MAP = {
   "!silenciar": miscCmd.silenciar,
 
   "!notificar": miscCmd.notificar,
+
+  "!kickar": playerCmd.kickar,
 };
 
 async function router(context) {
