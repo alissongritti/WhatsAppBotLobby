@@ -6,20 +6,21 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 
 ## 🔥 Principais Funcionalidades
 
-- **Sistema de Filas Dinâmico:** Crie filas para Lobbies (5 vagas) ou Mixes internos (10 vagas) com um único comando.
-- **Banco de Reservas Inteligente:** A fila encheu? Os próximos jogadores vão automaticamente para a lista de suplentes. Se um titular arregou (`!sair`), o bot promove o primeiro suplente para o time principal e notifica o grupo.
-- **Ghost Mentions (Marcação Fantasma):** Notifica todos os participantes da partida forçando o celular a apitar (usando a tag `@todos` de forma invisível via array de IDs), mantendo o chat visualmente limpo.
-- **Sistema de Nicks Customizados:** Chega de nomes de perfil esquisitos no WhatsApp. Os jogadores podem definir seus nicks in-game (`!meunick`), e o bot salva essas preferências de forma persistente no banco de dados.
-- **Gestão de Sessão Viva:** O criador da partida pode alterar o horário e o título da sala em tempo real, e o bot atualiza o painel para todos os confirmados.
-- **Integração Segura de Links:** Cospe o link do Discord automaticamente quando a sala fecha, puxando a URL de um arquivo `.env` protegido.
+🔥 Principais Funcionalidades
 
-## 🚀 Novidades da Versão Atual (v1.5)
+- **Fila Dinâmica e Transbordo Inteligente:** Criação de Lobbies (5 vagas) ou Mixes (10 vagas). Se a sala encher, os próximos vão para a fila de espera (suplentes). Se um titular sair (!sair), o bot promove o primeiro suplente automaticamente e avisa o grupo.
 
-- **Persistência de Dados (SQLite):** O bot agora utiliza um banco de dados relacional. Se o servidor reiniciar ou a energia cair, nenhuma lobby em andamento é perdida.
-- **Múltiplas Partidas Simultâneas:** Suporte para gerenciar várias lobbies ao mesmo tempo no mesmo grupo, utilizando um sistema de IDs visuais recicláveis (Ex: Lobby #1, Lobby #2).
-- **Sistema Inteligente de Suplentes (Transbordo):** Jogadores na fila de espera são notificados automaticamente quando uma nova lobby é aberta.
-- **Passagem de Coroa Automática:** Se o criador (Admin) da partida sair, a liderança é transferida automaticamente para o próximo titular da lista.
-- **Estatísticas Iniciais:** Preparação de terreno para o ranking, contabilizando partidas jogadas no banco de dados através do comando `!start`.
+- **Motor de Tempo Autônomo (Cron Jobs):** O bot monitora o relógio em segundo plano e dispara um alarme marcando os titulares no minuto exato marcado para a partida.
+
+- **Auto-manutenção (Vassoura Inteligente):** Para evitar lixo no banco de dados, uma rotina roda automaticamente todos os dias às 05:00 da manhã para cancelar salas esquecidas abertas no dia anterior.
+
+- **Time Parser e Fallbacks:** Compreensão tolerante a falhas. O bot entende variações de tempo (22h, 22:30, 22hrs) e converte para o banco. Se o usuário digitar texto no lugar da hora (ex: !lobby Corujão), o bot compreende o contexto e transforma o input no título da sala.
+
+- **Persistência e Alta Concorrência (SQLite):** Suporte a múltiplas partidas simultâneas no mesmo grupo com IDs recicláveis (Lobby #1, #2). Dados protegidos em banco relacional, imunes a quedas do servidor ou reinicializações.
+
+- **Notificações Cirúrgicas (Ghost Mentions):** Avisa os jogadores forçando o celular a apitar de forma invisível (via array de IDs do WhatsApp), sem poluir a tela do chat com dezenas de @numeros.
+
+- **Passagem de Coroa e Gestão de Sessão:** O dono da sala pode alterar título e horário em tempo real. Caso o líder desista e saia da fila, o bot transfere os privilégios de "Admin" automaticamente para o próximo titular da lista.
 
 ---
 
@@ -96,6 +97,12 @@ _(Nota: O bot possui tratamento de strings para aceitar variações naturais com
 
 ---
 
+No meu caso o projeto esta rodando de forma autônoma em um server Linux utilizando o **PM2**.
+
+1. Instale o PM2 globalmente: `npm install -g pm2`
+2. Inicie o daemon: `pm2 start index.js --name "bot-cs2"`
+3. Salve a inicialização automática: `pm2 save`
+
 ## 🔒 Segurança e Boas Práticas (Importante)
 
 Se for fazer um fork ou clonar este projeto, certifique-se de manter o arquivo .gitignore configurado corretamente para nunca subir as seguintes pastas/arquivos para repositórios públicos:
@@ -107,5 +114,4 @@ Se for fazer um fork ou clonar este projeto, certifique-se de manter o arquivo .
 ## 🚧 Roadmap (Versão 2.0 em breve)
 
 - [ ] Sorteio automático de times CT e TR para o comando !mix.
-- [ ] Log de estatísticas (Contador de partidas jogadas e ranking de "maiores arregões").
-- [ ] Integração com a API da Faceit/Gamers Club para puxar Win Rate e K/D médio do lobby.
+- [ ] Integração com a API das plataformas para puxar Win Rate e K/D médio do lobby.
