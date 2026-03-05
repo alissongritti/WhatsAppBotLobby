@@ -284,7 +284,7 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
 
   // Impede que o admin dê um kick nele mesmo (para isso ele usa o !sair)
   if (jogadorAlvo.jogador_id === senderId) {
-    await msg.reply("Não te podes kick a ti mesmo! Usa o comando *!sair*.");
+    await msg.reply("É só SAIR mula! Use o comando *!sair*.");
     return;
   }
 
