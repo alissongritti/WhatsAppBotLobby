@@ -299,6 +299,15 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
   }
   await jogadorService.removerJogador(registro.id);
 
+  const temAlguem = await jogadorService.temAlguemNaPartida(partidaAlvo.id);
+  if (!temAlguem) {
+    await partidaService.cancelarPartida(partidaAlvo.id);
+    await chat.sendMessage(
+      `👢 O último jogador foi de base. A partida #${partidaAlvo.numero_lobby} foi cancelada por falta de jogadores!`,
+    );
+    return; // O return impede que o código tente promover suplentes de uma lobby que não existe mais
+  }
+
   // Pega o nome do utilizador que tomou kick para avisar no grupo
   const nickKickado = await jogadorService.getNick(jogadorAlvo.jogador_id);
   const nomeKickado = nickKickado ? nickKickado.nome : "Jogador";
