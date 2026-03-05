@@ -202,10 +202,10 @@ async function resolverPartidaAlvo({ msg, parametro, groupId, acao }) {
   return null;
 }
 
-async function kickar({ msg, chat, parametro, senderId, groupId }) {
+async function kick({ msg, chat, parametro, senderId, groupId }) {
   if (!parametro) {
     await msg.reply(
-      "⚠️ Formato inválido. Use *!kick [posição]*.\nExemplo: *!kick 2*",
+      "⚠️ Formato inválido. Usa *!kick [posição]*.\nExemplo: *!kick 2*",
     );
     return;
   }
@@ -213,12 +213,12 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
   const posicao = parseInt(parametro);
   if (isNaN(posicao) || posicao < 1) {
     await msg.reply(
-      "⚠️ Posição inválida. Digite um número válido. Exemplo: *!kick 2*",
+      "⚠️ Posição inválida. Digita um número válido. Exemplo: *!kick 2*",
     );
     return;
   }
 
-  // 1. Pega as partidas abertas no grupo
+  // 1. Procura as partidas abertas no grupo
   const abertas = await partidaService.getPartidasAbertas(groupId);
   if (abertas.length === 0) {
     await msg.reply("❌ Nenhuma lobby aberta no momento para dar kick.");
@@ -230,38 +230,42 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
   if (abertas.length === 1) {
     partidaAlvo = abertas[0];
   } else {
-    // Se tem mais de uma, acha a que o usuário logado é o criador
+    // Se tem mais do que uma, acha a que o utilizador logado criou
     partidaAlvo = abertas.find((p) => p.criador_id === senderId);
-
-    if (!partidaAlvo) {
-      await msg.reply(
-        "⚠️ Temos múltiplas lobbies abertas. O comando !kick atualmente remove apenas da lobby que você criou.",
-      );
-      return;
-    }
   }
 
-  // 2. Checagem Dupla de Permissão (Criador ou Admin do Grupo)
-  const isCriador = partidaAlvo.criador_id === senderId;
+  // 2. Verificação Segura de Permissão (Criador ou Admin do Grupo)
+  const isCriador = partidaAlvo ? partidaAlvo.criador_id === senderId : false;
   let isGroupAdmin = false;
-  if (chat.isGroup) {
-    const participant = chat.participants.find(
-      (p) => p.id._serialized === senderId,
-    );
-    isGroupAdmin =
-      participant && (participant.isAdmin || participant.isSuperAdmin);
+
+  try {
+    if (chat.isGroup && Array.isArray(chat.participants)) {
+      const participant = chat.participants.find(
+        (p) => p.id && p.id._serialized === senderId,
+      );
+      isGroupAdmin =
+        participant && (participant.isAdmin || participant.isSuperAdmin);
+    }
+  } catch (error) {
+    console.error("Erro a ler os administradores do grupo:", error);
   }
 
+  // A TRAVA MÁGICA: Se não é dono nem admin, avisa logo e bloqueia!
   if (!isCriador && !isGroupAdmin) {
     await msg.reply(
-      "⛔ Sem moral! Apenas o dono da lobby ou administradores do grupo podem dar kick.",
+      "⛔ Sem permissão! Apenas o criador da lobby ou os administradores do grupo podem dar kick.",
     );
     return;
   }
 
+  // Se passou na trava sendo Admin, mas a partidaAlvo estava vazia (porque ele não é o criador), assume a primeira lobby
+  if (!partidaAlvo && isGroupAdmin) {
+    partidaAlvo = abertas[0];
+  }
+
   if (posicao > partidaAlvo.max_players) {
     await msg.reply(
-      `⚠️ Posição inválida. Essa partida só tem ${partidaAlvo.max_players} vagas.`,
+      `⚠️ Posição inválida. Esta partida só tem ${partidaAlvo.max_players} vagas.`,
     );
     return;
   }
@@ -269,21 +273,18 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
   // 3. Busca a lista de TITULARES atuais
   const titulares = await jogadorService.getTitulares(partidaAlvo.id);
 
-  // Lembre-se: Arrays começam no zero
   const indiceAlvo = posicao - 1;
 
   if (!titulares[indiceAlvo]) {
-    await msg.reply(
-      `⚠️ Não tem ninguém ocupando a vaga ${posicao} no momento.`,
-    );
+    await msg.reply(`⚠️ Ninguém está a ocupar a vaga ${posicao} no momento.`);
     return;
   }
 
   const jogadorAlvo = titulares[indiceAlvo];
 
-  // Impede que o admin dê um kick nele mesmo (pra isso ele usa o !sair)
+  // Impede que o admin dê um kick nele mesmo (para isso ele usa o !sair)
   if (jogadorAlvo.jogador_id === senderId) {
-    await msg.reply("Você não pode kickar a si mesmo! Use o comando *!sair*.");
+    await msg.reply("Não te podes kick a ti mesmo! Usa o comando *!sair*.");
     return;
   }
 
@@ -293,16 +294,16 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
     jogadorAlvo.jogador_id,
   );
   if (!registro) {
-    await msg.reply("⚠️ Erro ao encontrar o registro do jogador.");
+    await msg.reply("⚠️ Erro ao encontrar o registo do jogador.");
     return;
   }
   await jogadorService.removerJogador(registro.id);
 
-  // Pega o nome do cara que tomou kick pra avisar no grupo
+  // Pega o nome do utilizador que tomou kick para avisar no grupo
   const nickKickado = await jogadorService.getNick(jogadorAlvo.jogador_id);
   const nomeKickado = nickKickado ? nickKickado.nome : "Jogador";
 
-  // 5. Promove suplente se houver (Reaproveitado do seu !sair)
+  // 5. Promove suplente se houver
   const promovidoId = await jogadorService.promoverPrimeiroSuplente(
     partidaAlvo.id,
   );
@@ -320,7 +321,6 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
   if (partidaAlvo.horario)
     textoKick += `⏰ *Horário:* ${partidaAlvo.horario}\n`;
 
-  // O gerarListaTexto já está importado lá no topo do seu arquivo
   textoKick += `\n${await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players)}`;
 
   if (promovidoNome) {
@@ -329,10 +329,10 @@ async function kickar({ msg, chat, parametro, senderId, groupId }) {
     const numTitularesAtual = await partidaService.contarTitulares(
       partidaAlvo.id,
     );
-    textoKick += `\nRestam ${partidaAlvo.max_players - numTitularesAtual} vagas agora. Mande *!eu ${partidaAlvo.numero_lobby}* para entrar!`;
+    textoKick += `\nRestam ${partidaAlvo.max_players - numTitularesAtual} vagas agora. Usem *!eu ${partidaAlvo.numero_lobby}* para entrar!`;
   }
 
   await chat.sendMessage(textoKick);
 }
 
-module.exports = { entrar, sair, kickar };
+module.exports = { entrar, sair, kick };
