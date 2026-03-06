@@ -6,6 +6,8 @@ const adminCmd = require("./admin");
 
 const miscCmd = require("./misc");
 
+const hltvCmd = require("./hltvCmd");
+
 const COMMAND_MAP = {
   "!lobby": lobbyCmd.criarLobby,
 
@@ -38,6 +40,10 @@ const COMMAND_MAP = {
   "!setdiscord": adminCmd.setDiscord,
 
   "!discord": adminCmd.consultarDiscord,
+
+  "!jogos": hltvCmd.listarJogos,
+
+  "!jogosbr": hltvCmd.listarJogosBR,
 };
 
 async function router(context) {

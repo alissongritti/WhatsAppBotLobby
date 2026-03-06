@@ -31,6 +31,8 @@ const COMMAND_ALIASES = {
   "!kick": "!kick",
   "!discord": "!discord",
   "!setdiscord": "!setdiscord",
+  "!jogos": "!jogos",
+  "!jogosbr": "!jogosbr",
 };
 
 async function parseMessage(msg, chat) {
