@@ -43,11 +43,33 @@ async function iniciarBanco() {
 
     CREATE TABLE IF NOT EXISTS jogadores_silenciados (
       id TEXT PRIMARY KEY
+      );
+
+      CREATE TABLE IF NOT EXISTS grupos (
+      id_grupo TEXT PRIMARY KEY,
+      link_discord TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS grupos (
-    id_grupo TEXT PRIMARY KEY,
-    link_discord TEXT
+    CREATE TABLE IF NOT EXISTS hltv_jogos (
+      id            INTEGER PRIMARY KEY,
+      time1         TEXT NOT NULL,
+      time2         TEXT NOT NULL,
+      evento        TEXT,
+      tier          TEXT,
+      data_jogo     INTEGER,
+      ao_vivo       INTEGER DEFAULT 0,
+      atualizado_em INTEGER NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS hltv_resultados (
+      id            INTEGER PRIMARY KEY,
+      time1         TEXT NOT NULL,
+      score1        INTEGER,
+      time2         TEXT NOT NULL,
+      score2        INTEGER,
+      evento        TEXT,
+      data_jogo     INTEGER,
+      atualizado_em INTEGER NOT NULL
     );
   `);
 

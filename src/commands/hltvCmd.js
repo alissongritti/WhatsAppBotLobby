@@ -9,6 +9,15 @@ function formatarHora(timestamp) {
   });
 }
 
+function formatarHora(timestamp) {
+  if (!timestamp) return "🔴 AO VIVO"; // <-- trata jogos sem horário
+  return new Date(timestamp).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Sao_Paulo",
+  });
+}
+
 async function listarJogos({ msg }) {
   await msg.reply(
     "⏳ Consultando a HLTV... (Isso pode levar alguns segundos na primeira vez do dia)",
