@@ -43,28 +43,29 @@ async function atualizarCacheSeNecessario() {
 async function getJogosTopTier() {
   await atualizarCacheSeNecessario();
 
-  // Filtra apenas jogos do dia de hoje e que tenham 1 ou mais estrelas (Top Tiers)
-  const hoje = new Date().setHours(0, 0, 0, 0);
+  const agora = Date.now();
+  // Janela: jogos que começaram nas últimas 4h até as próximas 24h
+  const janelaInicio = agora - 4 * 60 * 60 * 1000;
+  const janelaFim = agora + 24 * 60 * 60 * 1000;
 
   return cacheJogos.filter((p) => {
-    const dataJogo = new Date(p.date).setHours(0, 0, 0, 0);
-    return dataJogo === hoje && p.stars >= 1;
+    return p.date >= janelaInicio && p.date <= janelaFim && p.stars >= 1;
   });
 }
 
 async function getJogosBR() {
   await atualizarCacheSeNecessario();
 
-  const hoje = new Date().setHours(0, 0, 0, 0);
+  const agora = Date.now();
+  const janelaInicio = agora - 4 * 60 * 60 * 1000;
+  const janelaFim = agora + 24 * 60 * 60 * 1000;
 
   return cacheJogos.filter((p) => {
-    const dataJogo = new Date(p.date).setHours(0, 0, 0, 0);
-    if (dataJogo !== hoje) return false;
+    if (p.date < janelaInicio || p.date > janelaFim) return false;
 
     const time1 = p.team1.name.toUpperCase();
     const time2 = p.team2.name.toUpperCase();
 
-    // Retorna true se pelo menos um dos times estiver na nossa lista BR
     return TIMES_BR.some(
       (br) =>
         time1.includes(br.toUpperCase()) || time2.includes(br.toUpperCase()),
