@@ -171,7 +171,6 @@ async function getJogosTopTier() {
 
   return await db.all(`
     SELECT * FROM hltv_jogos
-    WHERE tier IN ('s-tier', 'a-tier')
     ORDER BY ao_vivo DESC, data_jogo ASC
   `);
 }
