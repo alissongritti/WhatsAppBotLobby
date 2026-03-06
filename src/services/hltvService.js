@@ -65,7 +65,7 @@ async function atualizarJogos() {
       axios.get("https://api.pandascore.co/csgo/matches/upcoming", {
         headers: { Authorization: `Bearer ${PANDASCORE_TOKEN}` },
         params: {
-          "filter[scheduled_at]": `${hoje},${amanha}`,
+          "range[scheduled_at]": `${hoje},${amanha}`,
           per_page: 50,
           sort: "scheduled_at",
         },
