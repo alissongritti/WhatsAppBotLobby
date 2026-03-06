@@ -60,11 +60,30 @@ async function status({ msg, chat, groupId }) {
 }
 
 async function comandos({ chat }) {
-  const texto =
-    `🤖 *COMANDOS DO BOT* 🤖\n\n` +
-    `🎮 *Criação de Partidas:*\n*!lobby [hora]* - Cria fila para 5 jogadores.\n*!mix [hora]* - Cria um 5x5 para 10 jogadores.\n\n` +
-    `👤 *Interação:*\n*!eu* - Entra na lista.\n*!sair* - Sai da lista.\n*!status* - Mostra as listas atuais.\n*!nick [nome]* - Muda seu nome. \n*!silenciar* - Não receberá notificação quando uma lobby for criada.\n*!notificar* - Reativa a notificação quando uma lobby for criada.\n\n` +
-    `⚙️ *Gerenciamento:*\n*!horario [hora]* - Atualiza o horário.\n*!titulo [nome]* - Atualiza o título.\n*!start* - Fecha a lista e dá +1 ponto de estatística aos titulares.\n*!cancelar* - Derruba a lista.\n*!kick [posição na lista]* - Remove jogador que não compareceu na lobby.`;
+  const texto = [
+    "🤖 *COMANDOS DO BOT* 🤖",
+    "",
+    "🎮 *Criação de Partidas:*",
+    "*!lobby [hora]* - Cria fila para 5 jogadores.",
+    "*!mix [hora]* - Cria um 5x5 para 10 jogadores.",
+    "",
+    "👤 *Interação:*",
+    "*!eu* - Entra na lista.",
+    "*!sair* - Sai da lista.",
+    "*!status* - Mostra as listas atuais.",
+    "*!nick [nome]* - Muda seu nome.",
+    "*!silenciar* - Não receberá notificação.",
+    "*!notificar* - Reativa a notificação.",
+    "*!discord* - Consulta o discord do grupo.",
+    "",
+    "⚙️ *Gerenciamento:*",
+    "*!horario [hora]* - Atualiza o horário.",
+    "*!titulo [nome]* - Atualiza o título.",
+    "*!start* - Fecha a lista e pontua titulares.",
+    "*!cancelar* - Derruba a lista.",
+    "*!kick [posição]* - Remove jogador ausente.",
+    "*!setdiscord [link]* - Adiciona o link do Discord.",
+  ].join("\n");
 
   await chat.sendMessage(texto);
 }

@@ -40,6 +40,8 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 | `!notificar`               | Reativa a notificação quando uma lobby for criada.                                                           |
 | `!kick [posição na lista]` | Remove jogador que não compareceu na lobby.                                                                  |
 | `!comandos`                | Exibe o menu de ajuda no chat.                                                                               |
+| `!discord`                 | Consulta o discord do grupo.                                                                                 |
+| `!setdiscord [link]`       | Adiciona o link do Discord.                                                                                  |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
 
