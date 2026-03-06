@@ -42,6 +42,8 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 | `!comandos`                | Exibe o menu de ajuda no chat.                                                                               |
 | `!discord`                 | Consulta o discord do grupo.                                                                                 |
 | `!setdiscord [link]`       | Adiciona o link do Discord.                                                                                  |
+| `!jogos`                   | Consulta os jogos de CS2 do dia.                                                                             |
+| `!jogosbr`                 | AConsulta os jogos de times brasileiros do dia.                                                              |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
 

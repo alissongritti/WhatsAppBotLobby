@@ -75,6 +75,8 @@ async function comandos({ chat }) {
     "*!silenciar* - Não receberá notificação.",
     "*!notificar* - Reativa a notificação.",
     "*!discord* - Consulta o discord do grupo.",
+    "*!jogos* - Consulta os jogos de CS2 do dia.",
+    "*!jogosbr* - Consulta os jogos de times brasileiros do dia.",
     "",
     "⚙️ *Gerenciamento:*",
     "*!horario [hora]* - Atualiza o horário.",
