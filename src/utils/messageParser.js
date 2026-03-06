@@ -39,10 +39,9 @@ async function parseMessage(msg, chat) {
   const textoLower = msg.body.toLowerCase().trim();
 
   // Encontra qual alias bate com o início da mensagem
-  const aliasEncontrado = Object.keys(COMMAND_ALIASES).find((alias) =>
-    textoLower.startsWith(alias),
-  );
-
+  const aliasEncontrado = Object.keys(COMMAND_ALIASES)
+    .sort((a, b) => b.length - a.length) // mais longos primeiro
+    .find((alias) => textoLower.startsWith(alias));
   if (!aliasEncontrado) return null;
 
   const comando = COMMAND_ALIASES[aliasEncontrado];
