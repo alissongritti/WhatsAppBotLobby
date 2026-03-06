@@ -31,7 +31,7 @@ async function atualizarCacheSeNecessario() {
     const partidas = await HLTV.getMatches();
 
     // Filtra apenas partidas que ainda não acabaram e que têm os dois times definidos
-    cacheJogos = partidas.filter((p) => p.team1 && p.team2 && p.date);
+    cacheJogos = partidas.filter((p) => p.team1 && p.team2);
     ultimaAtualizacao = agora;
     console.log("✅ Cache da HLTV atualizado com sucesso!");
   } catch (error) {
@@ -40,16 +40,37 @@ async function atualizarCacheSeNecessario() {
   }
 }
 
+async function atualizarCacheSeNecessario() {
+  const agora = Date.now();
+  if (agora - ultimaAtualizacao < TEMPO_CACHE_MS && cacheJogos.length > 0)
+    return;
+
+  try {
+    console.log("🔄 Buscando partidas na HLTV...");
+    const partidas = await HLTV.getMatches();
+
+    // Removido o filtro por `p.date` — jogos ao vivo podem ter date null!
+    cacheJogos = partidas.filter((p) => p.team1 && p.team2);
+    ultimaAtualizacao = agora;
+    console.log(
+      `✅ Cache atualizado! ${cacheJogos.length} partidas encontradas.`,
+    );
+  } catch (error) {
+    console.error("❌ Erro ao buscar dados da HLTV:", error.message);
+  }
+}
+
 async function getJogosTopTier() {
   await atualizarCacheSeNecessario();
 
   const agora = Date.now();
-  // Janela: jogos que começaram nas últimas 4h até as próximas 24h
   const janelaInicio = agora - 4 * 60 * 60 * 1000;
   const janelaFim = agora + 24 * 60 * 60 * 1000;
 
   return cacheJogos.filter((p) => {
-    return p.date >= janelaInicio && p.date <= janelaFim && p.stars >= 1;
+    const dataJogo = p.date ?? agora; // null = ao vivo agora
+    const stars = p.stars ?? 0;
+    return dataJogo >= janelaInicio && dataJogo <= janelaFim && stars >= 1;
   });
 }
 
@@ -61,7 +82,8 @@ async function getJogosBR() {
   const janelaFim = agora + 24 * 60 * 60 * 1000;
 
   return cacheJogos.filter((p) => {
-    if (p.date < janelaInicio || p.date > janelaFim) return false;
+    const dataJogo = p.date ?? agora; // null = ao vivo agora
+    if (dataJogo < janelaInicio || dataJogo > janelaFim) return false;
 
     const time1 = p.team1.name.toUpperCase();
     const time2 = p.team2.name.toUpperCase();
