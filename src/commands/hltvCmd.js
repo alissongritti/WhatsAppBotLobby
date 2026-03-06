@@ -10,8 +10,6 @@ function formatarHora(timestamp) {
 }
 
 async function listarJogos({ msg }) {
-  await msg.reply("⏳ Consultando jogos de CS2...");
-
   const jogos = await hltvService.getJogos();
 
   if (jogos.length === 0) {
@@ -35,8 +33,6 @@ async function listarJogos({ msg }) {
 }
 
 async function listarJogosBR({ msg }) {
-  await msg.reply("⏳ Procurando os Brazucas...");
-
   const { ativos, encerrados } = await hltvService.getJogosBR();
 
   // Tem jogos ao vivo ou futuros
@@ -68,8 +64,6 @@ async function listarJogosBR({ msg }) {
 }
 
 async function listarResultados({ msg }) {
-  await msg.reply("⏳ Buscando resultados do dia...");
-
   const resultados = await hltvService.getResultados();
 
   if (resultados.length === 0) {
