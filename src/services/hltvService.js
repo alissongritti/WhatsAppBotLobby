@@ -26,10 +26,7 @@ function extrairTimes(match) {
 function ehBR(time1, time2) {
   return TIMES_BR.some((br) => {
     const brUp = br.toUpperCase();
-    const t1Up = time1.toUpperCase();
-    const t2Up = time2.toUpperCase();
-    // Comparação exata ao invés de includes
-    return t1Up === brUp || t2Up === brUp;
+    return time1.toUpperCase() === brUp || time2.toUpperCase() === brUp;
   });
 }
 
