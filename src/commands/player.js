@@ -1,6 +1,7 @@
 const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
 const { gerarListaTexto } = require("../utils/listFormatter");
+const grupoService = require("../services/grupoService");
 
 async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   // Regra da monogamia
@@ -26,6 +27,7 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
   const numTitulares = await partidaService.contarTitulares(partidaAlvo.id);
   const maxPlayers = partidaAlvo.max_players;
+  const linkDiscord = await grupoService.obterDiscord(groupId);
 
   if (numTitulares < maxPlayers) {
     await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "TITULAR");
@@ -36,7 +38,11 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
       if (partidaAlvo.horario)
         textoFinal += `⏰ *Horário:* ${partidaAlvo.horario}\n`;
       textoFinal += `\n${await gerarListaTexto(partidaAlvo.id, maxPlayers)}`;
-      textoFinal += `\n🎧 Entrem no Discord!`;
+      if (linkDiscord) {
+        textoFinal += `\n🎧 Bora para o discord - ${linkDiscord}`;
+      } else {
+        textoFinal += `\n🎧 Bora para o discord - (Admins: usem !setdiscord para personalizar)`;
+      }
       await chat.sendMessage(textoFinal);
     } else {
       let textoParcial = `🎮 *${partidaAlvo.tipo} #${partidaAlvo.numero_lobby} (PARCIAL)* 🎮\n`;

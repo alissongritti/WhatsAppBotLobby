@@ -34,6 +34,10 @@ const COMMAND_MAP = {
   "!notificar": miscCmd.notificar,
 
   "!kick": playerCmd.kick,
+
+  "!setdiscord": adminCmd.setDiscord,
+
+  "!discord": adminCmd.consultarDiscord,
 };
 
 async function router(context) {

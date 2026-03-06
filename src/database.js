@@ -44,6 +44,11 @@ async function iniciarBanco() {
     CREATE TABLE IF NOT EXISTS jogadores_silenciados (
       id TEXT PRIMARY KEY
     );
+
+    CREATE TABLE IF NOT EXISTS grupos (
+    id_grupo TEXT PRIMARY KEY,
+    link_discord TEXT
+    );
   `);
 
   await db.exec("PRAGMA foreign_keys = ON;");

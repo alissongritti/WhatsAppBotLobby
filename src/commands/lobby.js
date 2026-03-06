@@ -2,7 +2,8 @@ const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 const { marcarTodos, mencionarJogadores } = require("../utils/mentions");
-const { parseHorario } = require("../utils/timeParser"); // <-- IMPORTAÇÃO NOVA AQUI
+const { parseHorario } = require("../utils/timeParser");
+const grupoService = require("../services/grupoService");
 
 async function criarLobby({
   msg,

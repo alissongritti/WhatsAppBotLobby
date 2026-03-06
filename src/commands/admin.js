@@ -4,6 +4,7 @@ const statsService = require("../services/statsService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 const { mencionarJogadores } = require("../utils/mentions");
 const { parseHorario } = require("../utils/timeParser");
+const grupoService = require("../services/grupoService");
 
 async function start({ msg, chat, senderId, groupId }) {
   const partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
@@ -112,4 +113,70 @@ async function getPartidaOuErro(msg, groupId, senderId) {
   return partida;
 }
 
-module.exports = { start, cancelar, horario, titulo };
+async function setDiscord({ msg, chat, parametro, senderId, groupId }) {
+  if (!chat.isGroup) {
+    await msg.reply("⚠️ Este comando só funciona dentro de grupos.");
+    return;
+  }
+
+  // Trava de Admin
+  let isGroupAdmin = false;
+  try {
+    if (Array.isArray(chat.participants)) {
+      const participant = chat.participants.find(
+        (p) => p.id && p.id._serialized === senderId,
+      );
+      isGroupAdmin =
+        participant && (participant.isAdmin || participant.isSuperAdmin);
+    }
+  } catch (error) {
+    console.error("Erro ao ler os administradores do grupo:", error);
+  }
+
+  if (!isGroupAdmin) {
+    await msg.reply(
+      "⛔ Apenas os administradores do grupo podem configurar o link do Discord.",
+    );
+    return;
+  }
+
+  if (!parametro) {
+    await msg.reply(
+      "⚠️ Envie o link junto com o comando. Exemplo: *!setdiscord https://discord.gg/seulink*",
+    );
+    return;
+  }
+
+  const link = parametro.trim();
+  await grupoService.salvarDiscord(groupId, link);
+  await msg.reply(
+    `✅ Link do Discord atualizado com sucesso para este grupo!\n\n🔗 ${link}`,
+  );
+}
+
+async function consultarDiscord({ msg, chat, groupId }) {
+  if (!chat.isGroup) {
+    await msg.reply("⚠️ Este comando só funciona dentro de grupos.");
+    return;
+  }
+
+  const link = await grupoService.obterDiscord(groupId);
+
+  if (!link) {
+    await msg.reply(
+      "⚠️ Nenhum Discord configurado. Um Admin pode configurar utilizando !setdiscord [link]",
+    );
+    return;
+  }
+
+  await msg.reply(`🎧 *Discord da Galera:*\n${link}`);
+}
+
+module.exports = {
+  start,
+  cancelar,
+  horario,
+  titulo,
+  setDiscord,
+  consultarDiscord,
+};
