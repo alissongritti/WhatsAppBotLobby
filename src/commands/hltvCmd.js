@@ -23,7 +23,9 @@ async function listarJogos({ msg }) {
 
   jogos.slice(0, 10).forEach((jogo) => {
     const hora = formatarHora(jogo.data_jogo);
-    texto += `⏰ *${hora}* | ${jogo.time1} x ${jogo.time2}\n`;
+    const isBR = hltvService.ehBR(jogo.time1, jogo.time2);
+    const destaque = isBR ? " 🇧🇷" : "";
+    texto += `⏰ *${hora}* | ${jogo.time1} x ${jogo.time2}${destaque}\n`;
     texto += `🏆 ${jogo.evento}\n\n`;
   });
 

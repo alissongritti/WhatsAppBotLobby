@@ -26,9 +26,10 @@ function extrairTimes(match) {
 function ehBR(time1, time2) {
   return TIMES_BR.some((br) => {
     const brUp = br.toUpperCase();
-    return (
-      time1.toUpperCase().includes(brUp) || time2.toUpperCase().includes(brUp)
-    );
+    const t1Up = time1.toUpperCase();
+    const t2Up = time2.toUpperCase();
+    // Comparação exata ao invés de includes
+    return t1Up === brUp || t2Up === brUp;
   });
 }
 
@@ -196,4 +197,4 @@ async function getResultados() {
   `);
 }
 
-module.exports = { getJogosTopTier, getJogosBR, getResultados };
+module.exports = { getJogosTopTier, getJogosBR, getResultados, ehBR };
