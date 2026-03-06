@@ -29,6 +29,8 @@ const COMMAND_ALIASES = {
   "!silenciar": "!silenciar",
   "!notificar": "!notificar",
   "!kick": "!kick",
+  "!discord": "!discord",
+  "!setdiscord": "!setdiscord",
 };
 
 async function parseMessage(msg, chat) {
