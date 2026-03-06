@@ -95,4 +95,12 @@ async function getJogosBR() {
   });
 }
 
+const partidas = await HLTV.getMatches();
+console.log("Total bruto:", partidas.length);
+console.log(
+  "Exemplo de jogo ao vivo:",
+  partidas.find((p) => p.live),
+);
+console.log("Com date null:", partidas.filter((p) => !p.date).length);
+
 module.exports = { getJogosTopTier, getJogosBR };
