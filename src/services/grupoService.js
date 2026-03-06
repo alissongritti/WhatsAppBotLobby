@@ -1,4 +1,4 @@
-const db = require("./database"); // Ajuste para o caminho do seu arquivo de DB
+const db = require("../database");
 
 async function salvarDiscord(groupId, link) {
   const query = `INSERT OR REPLACE INTO grupos (id_grupo, link_discord) VALUES (?, ?)`;
