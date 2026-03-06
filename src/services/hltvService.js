@@ -73,7 +73,6 @@ async function atualizarJogos() {
     const db = getDb();
     const agora = Date.now();
 
-    // Limpa tudo e insere do zero
     await db.run("DELETE FROM hltv_jogos");
 
     const inserir = async (matches, aoVivo) => {
@@ -123,9 +122,16 @@ async function atualizarResultados() {
   console.log("🔄 Buscando resultados na PandaScore...");
 
   try {
+    const hoje = new Date().toISOString().split("T")[0];
+    const amanha = new Date(Date.now() + 86400000).toISOString().split("T")[0];
+
     const res = await axios.get("https://api.pandascore.co/csgo/matches/past", {
       headers: { Authorization: `Bearer ${PANDASCORE_TOKEN}` },
-      params: { per_page: 10, sort: "-scheduled_at" },
+      params: {
+        "range[scheduled_at]": `${hoje},${amanha}`,
+        per_page: 50,
+        sort: "-scheduled_at",
+      },
     });
 
     const db = getDb();
@@ -163,26 +169,44 @@ async function atualizarResultados() {
 
 // ─── Funções públicas ─────────────────────────────────────────────────────────
 
-async function getJogosTopTier() {
+// Retorna jogos ao vivo + jogos futuros (data_jogo >= agora)
+async function getJogos() {
   await atualizarJogos();
   const db = getDb();
-
-  return await db.all(`
-    SELECT * FROM hltv_jogos
-    ORDER BY ao_vivo DESC, data_jogo ASC
-  `);
-}
-
-async function getJogosBR() {
-  await atualizarJogos();
-  const db = getDb();
+  const agora = Date.now();
 
   const todos = await db.all(`
     SELECT * FROM hltv_jogos
     ORDER BY ao_vivo DESC, data_jogo ASC
   `);
 
-  return todos.filter((j) => ehBR(j.time1, j.time2));
+  // ao_vivo = 1 sempre aparece; futuros aparecem se data_jogo >= agora
+  return todos.filter(
+    (j) => j.ao_vivo === 1 || (j.data_jogo && j.data_jogo >= agora),
+  );
+}
+
+// Retorna jogos BR ao vivo + futuros. Se só houver jogos passados, retorna-os
+// separadamente para o cmd exibir a mensagem inteligente.
+async function getJogosBR() {
+  await atualizarJogos();
+  const db = getDb();
+  const agora = Date.now();
+
+  const todos = await db.all(`
+    SELECT * FROM hltv_jogos
+    ORDER BY ao_vivo DESC, data_jogo ASC
+  `);
+
+  const br = todos.filter((j) => ehBR(j.time1, j.time2));
+  const ativos = br.filter(
+    (j) => j.ao_vivo === 1 || (j.data_jogo && j.data_jogo >= agora),
+  );
+  const encerrados = br.filter(
+    (j) => j.ao_vivo === 0 && (!j.data_jogo || j.data_jogo < agora),
+  );
+
+  return { ativos, encerrados };
 }
 
 async function getResultados() {
@@ -194,4 +218,4 @@ async function getResultados() {
   `);
 }
 
-module.exports = { getJogosTopTier, getJogosBR, getResultados, ehBR };
+module.exports = { getJogos, getJogosBR, getResultados, ehBR };
