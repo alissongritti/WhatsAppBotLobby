@@ -119,7 +119,7 @@ async function listarNovidades({ msg }) {
   let itens;
 
   try {
-    itens = await fetchUltimasAtualizacoes(3);
+    itens = await fetchUltimasAtualizacoes(1);
   } catch (err) {
     await msg.reply(
       "❌ Não foi possível buscar as atualizações agora. Tente novamente mais tarde.",
