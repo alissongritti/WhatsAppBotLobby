@@ -72,7 +72,7 @@ async function criarLobby({
 
     if (horarioPassou) {
       // Sala incompleta e horário já passou — cancela e avisa
-      await partidaService.cancelarLobby(lobby.id);
+      await partidaService.cancelarPartida(lobby.id);
       textoAviso = `♻️ *O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) foi cancelado por inatividade.*\n\n`;
     } else {
       // Sala incompleta e ainda no prazo — bloqueia criação
