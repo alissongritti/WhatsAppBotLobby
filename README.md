@@ -47,6 +47,7 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 | `!jogosbr`                 | Filtra apenas os próximos jogos de times brasileiros.                                                                 |
 | `!resultados`              | Consulta os resultados e placares dos jogos que já acabaram hoje.                                                     |
 | `!resultadosbr`            | Consulta os resultados apenas dos times brasileiros hoje.                                                             |
+| `!novidades`               | Consulta a última atualização oficial do CS2 (Patch Notes).                                                           |
 | `!aprovar [ID]`            | _(Apenas Admin DM)_ Libera o uso do bot em um grupo específico.                                                       |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
