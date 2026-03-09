@@ -1,16 +1,28 @@
 const { getDb } = require("../database");
 
-async function salvarDiscord(groupId, link) {
+async function isGrupoAutorizado(groupId) {
   const db = getDb();
-  const query = `INSERT OR REPLACE INTO grupos (id_grupo, link_discord) VALUES (?, ?)`;
-  await db.run(query, [groupId, link]);
+  const row = await db.get(
+    "SELECT autorizado FROM grupos WHERE id_grupo = ? AND autorizado = 1",
+    [groupId],
+  );
+  return !!row;
 }
 
-async function obterDiscord(groupId) {
+async function autorizarGrupo(groupId) {
   const db = getDb();
-  const query = `SELECT link_discord FROM grupos WHERE id_grupo = ?`;
-  const row = await db.get(query, [groupId]);
-  return row ? row.link_discord : null;
+  await db.run(
+    `INSERT INTO grupos (id_grupo, autorizado) VALUES (?, 1)
+     ON CONFLICT(id_grupo) DO UPDATE SET autorizado = 1`,
+    [groupId],
+  );
 }
 
-module.exports = { salvarDiscord, obterDiscord };
+async function revogarGrupo(groupId) {
+  const db = getDb();
+  await db.run("UPDATE grupos SET autorizado = 0 WHERE id_grupo = ?", [
+    groupId,
+  ]);
+}
+
+module.exports = { isGrupoAutorizado, autorizarGrupo, revogarGrupo };

@@ -75,13 +75,17 @@ async function iniciarBanco() {
 
   await db.exec("PRAGMA foreign_keys = ON;");
 
-  // Migração não destrutiva: adiciona coluna se não existir
   try {
     await db.exec("ALTER TABLE partidas ADD COLUMN numero_lobby INTEGER");
   } catch (e) {
     // Coluna já existe, ignora
   }
 
+  try {
+    await db.exec("ALTER TABLE grupos ADD COLUMN autorizado INTEGER DEFAULT 0");
+  } catch (e) {
+    // Coluna já existe, ignora
+  }
   console.log("📦 Banco de dados SQLite conectado e pronto!");
 }
 
