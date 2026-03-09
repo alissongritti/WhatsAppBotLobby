@@ -1,4 +1,8 @@
 const hltvService = require("../services/hltvService");
+const {
+  fetchUltimasAtualizacoes,
+  formatarAtualizacao,
+} = require("../services/rssService");
 
 function formatarHora(timestamp) {
   if (!timestamp) return "🔴 AO VIVO";
@@ -50,7 +54,7 @@ async function listarJogosBR({ msg }) {
 
   if (encerrados.length > 0) {
     await msg.reply(
-      "😴 Todos os jogos dos Brazucas de hoje já acabaram!\n\nMande *!resultados br* para ver os placares ou aguarde os jogos de amanhã.",
+      "😴 Todos os jogos dos Brazucas de hoje já acabaram!\n\nMande *!resultadosbr* para ver os placares ou aguarde os jogos de amanhã.",
     );
     return;
   }
@@ -111,9 +115,32 @@ async function listarResultadosBR({ msg }) {
   await msg.reply(texto.trim());
 }
 
+async function listarNovidades({ msg }) {
+  let itens;
+
+  try {
+    itens = await fetchUltimasAtualizacoes(3);
+  } catch (err) {
+    await msg.reply(
+      "❌ Não foi possível buscar as atualizações agora. Tente novamente mais tarde.",
+    );
+    return;
+  }
+
+  if (itens.length === 0) {
+    await msg.reply("😴 Nenhuma atualização encontrada no momento.");
+    return;
+  }
+
+  for (const item of itens) {
+    await msg.reply(formatarAtualizacao(item, true));
+  }
+}
+
 module.exports = {
   listarJogos,
   listarJogosBR,
   listarResultados,
   listarResultadosBR,
+  listarNovidades,
 };

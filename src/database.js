@@ -71,6 +71,11 @@ async function iniciarBanco() {
       data_jogo     INTEGER,
       atualizado_em INTEGER NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS config (
+      chave TEXT PRIMARY KEY,
+      valor TEXT NOT NULL
+    );
   `);
 
   await db.exec("PRAGMA foreign_keys = ON;");

@@ -48,6 +48,8 @@ const COMMAND_MAP = {
   "!resultados": hltvCmd.listarResultados,
 
   "!resultadosbr": hltvCmd.listarResultadosBR,
+
+  "!novidades": hltvCmd.listarNovidades,
 };
 
 async function router(context) {

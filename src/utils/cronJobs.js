@@ -2,14 +2,20 @@ const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
 const { mencionarJogadores } = require("./mentions");
 const { getDb } = require("../database");
+const {
+  verificarNovaAtualizacao,
+  getGruposAutorizados,
+  formatarAtualizacao,
+} = require("../services/rssService");
 
 let ultimaLimpeza = "";
+let ultimaVerificacaoRSS = 0;
+const INTERVALO_RSS_MS = 30 * 60 * 1000; // Verifica a cada 30 minutos
 
 // Essa variável guarda os IDs das salas que já apitaram, para não virar spam
 const lobbiesAvisadas = new Set();
 
 // ─── Limpeza do banco HLTV ────────────────────────────────────────────────────
-// Remove jogos e resultados do dia anterior e força atualização na próxima consulta
 async function limparCacheHltv() {
   const db = getDb();
   await db.run("DELETE FROM hltv_jogos");
@@ -41,6 +47,42 @@ function iniciarCronJobs(client) {
         );
       }
 
+      // ---------------------------------------------------------
+      // 📰 VERIFICAÇÃO DE PATCH NOTES DO CS2 (A cada 30 minutos)
+      // ---------------------------------------------------------
+      const agoraMs = Date.now();
+      if (agoraMs - ultimaVerificacaoRSS >= INTERVALO_RSS_MS) {
+        ultimaVerificacaoRSS = agoraMs;
+
+        try {
+          const novaAtualizacao = await verificarNovaAtualizacao();
+
+          if (novaAtualizacao) {
+            console.log(
+              `📰 Nova atualização CS2 detectada: ${novaAtualizacao.title}`,
+            );
+            const grupos = await getGruposAutorizados();
+            const mensagem = formatarAtualizacao(novaAtualizacao);
+
+            for (const grupo of grupos) {
+              try {
+                await client.sendMessage(grupo.id_grupo, mensagem);
+              } catch (e) {
+                console.error(
+                  `⚠️ Erro ao notificar grupo ${grupo.id_grupo}:`,
+                  e.message,
+                );
+              }
+            }
+          }
+        } catch (e) {
+          console.error("⚠️ Erro ao verificar RSS do CS2:", e.message);
+        }
+      }
+
+      // ---------------------------------------------------------
+      // ⏰ ALARME DA HORA H
+      // ---------------------------------------------------------
       for (const partida of abertas) {
         if (partida.horario === horaAtual && !lobbiesAvisadas.has(partida.id)) {
           const idDoGrupo = partida.grupo_id || partida.group_id;
@@ -57,19 +99,16 @@ function iniciarCronJobs(client) {
 
           if (titulares.length > 0) {
             const mentionsIds = titulares.map((t) => t.jogador_id);
-            // Limite dinâmico: Mix precisa de 10, Lobby de 5
             const limiteJogadores = partida.tipo === "MIX" ? 10 : 5;
-            const tipo = partida.tipo; // "MIX" ou "LOBBY"
+            const tipo = partida.tipo;
 
             let mensagem;
             if (titulares.length >= limiteJogadores) {
-              // Sala completa
               mensagem =
                 `⏰ *TÁ NA HORA!* ⏰\n` +
                 `O ${tipo} #${partida.numero_lobby} (${partida.titulo}) estava marcado para as *${partida.horario}*!\n\n` +
                 `Bora pro jogo, titulares! Mandem *!start* para fechar a sala.`;
             } else {
-              // Sala incompleta
               mensagem =
                 `⏰ *Chegou o horário do ${tipo} #${partida.numero_lobby}, mas ainda faltam jogadores!* ` +
                 `(${titulares.length}/${limiteJogadores})\n\n` +
