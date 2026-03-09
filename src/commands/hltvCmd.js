@@ -35,7 +35,6 @@ async function listarJogos({ msg }) {
 async function listarJogosBR({ msg }) {
   const { ativos, encerrados } = await hltvService.getJogosBR();
 
-  // Tem jogos ao vivo ou futuros
   if (ativos.length > 0) {
     let texto = `🇧🇷 *JOGOS DOS BRAZUCAS HOJE* 🇧🇷\n\n`;
 
@@ -49,33 +48,42 @@ async function listarJogosBR({ msg }) {
     return;
   }
 
-  // Só tem jogos encerrados
   if (encerrados.length > 0) {
     await msg.reply(
-      "😴 Todos os jogos dos Brazucas de hoje já acabaram!\n\nMande *!resultados* para ver os placares ou aguarde os jogos de amanhã.",
+      "😴 Todos os jogos dos Brazucas de hoje já acabaram!\n\nMande *!resultados br* para ver os placares ou aguarde os jogos de amanhã.",
     );
     return;
   }
 
-  // Nenhum jogo BR hoje
   await msg.reply(
     "🇧🇷 Nenhum time brasileiro joga hoje.\n\nAguarde os próximos jogos! 💪",
   );
 }
 
-async function listarResultados({ msg }) {
+async function listarResultados({ msg, parametro }) {
   const resultados = await hltvService.getResultados();
 
-  if (resultados.length === 0) {
-    await msg.reply(
-      "😴 Nenhum resultado ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!",
-    );
+  // Filtra só BR se o usuário mandou "!resultados br"
+  const apenasB = parametro?.toLowerCase() === "br";
+  const lista = apenasB
+    ? resultados.filter((r) => hltvService.ehBR(r.time1, r.time2))
+    : resultados;
+
+  if (lista.length === 0) {
+    const msgVazia = apenasB
+      ? "🇧🇷 Nenhum resultado de time brasileiro ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!"
+      : "😴 Nenhum resultado ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!";
+    await msg.reply(msgVazia);
     return;
   }
 
-  let texto = `📊 *RESULTADOS DE HOJE* 📊\n\n`;
+  const header = apenasB
+    ? `🇧🇷 *RESULTADOS DOS BRAZUCAS HOJE* 🇧🇷\n\n`
+    : `📊 *RESULTADOS DE HOJE* 📊\n\n`;
 
-  resultados.slice(0, 10).forEach((r) => {
+  let texto = header;
+
+  lista.slice(0, 10).forEach((r) => {
     const isBR = hltvService.ehBR(r.time1, r.time2);
     const destaque = isBR ? " 🇧🇷" : "";
     const placar =

@@ -45,6 +45,7 @@ Um bot de WhatsApp construído em **Node.js** com a biblioteca `whatsapp-web.js`
 | `!jogos`                   | Consulta os jogos de CS2 do dia.                                                                             |
 | `!jogosbr`                 | Consulta os jogos de times brasileiros do dia.                                                               |
 | `!resultados`              | Consulta os resultados dos jogos do dia.                                                                     |
+| `!resultadosbr`            | Consulta os resultados dos jogos do dia.                                                                     |
 
 _(Nota: O bot possui tratamento de strings para aceitar variações naturais como `!horas`, `!hrs`, `!horário`, `!título`, etc)._
 

@@ -78,6 +78,7 @@ async function comandos({ chat }) {
     "*!jogos* - Consulta os jogos de CS2 do dia.",
     "*!jogosbr* - Consulta os jogos de times brasileiros do dia.",
     "*!resultados* - Consulta os resultados dos jogos do dia.",
+    "*!resultadosbr* - Consulta os resultados dos jogos brasileiros do dia.",
     "",
     "⚙️ *Gerenciamento:*",
     "*!horario [hora]* - Atualiza o horário.",
