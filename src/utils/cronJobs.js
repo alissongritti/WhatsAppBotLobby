@@ -18,17 +18,14 @@ async function limparCacheHltv() {
 }
 
 function iniciarCronJobs(client) {
-  // Esse código roda automaticamente a cada 60000 milissegundos (1 minuto)
   setInterval(async () => {
     try {
-      // 1. Descobre que horas são agora (formato HH:mm)
       const agora = new Date();
       const horaAtual =
         agora.getHours().toString().padStart(2, "0") +
         ":" +
         agora.getMinutes().toString().padStart(2, "0");
 
-      // 2. Puxa do banco todas as salas que têm horário marcado
       const abertas = await partidaService.getTodasPartidasComHorario();
 
       // ---------------------------------------------------------
@@ -37,7 +34,7 @@ function iniciarCronJobs(client) {
       const dataDeHoje = agora.toLocaleDateString();
       if (horaAtual === "05:00" && ultimaLimpeza !== dataDeHoje) {
         await partidaService.limparPartidasEsquecidas();
-        await limparCacheHltv(); // Limpa jogos/resultados do dia anterior
+        await limparCacheHltv();
         ultimaLimpeza = dataDeHoje;
         console.log(
           `🧹 [${dataDeHoje}] Vassoura passou! Lobbies e cache HLTV limpos.`,
@@ -45,7 +42,6 @@ function iniciarCronJobs(client) {
       }
 
       for (const partida of abertas) {
-        // Se a hora do relógio bater com a hora da sala E a gente ainda não avisou
         if (partida.horario === horaAtual && !lobbiesAvisadas.has(partida.id)) {
           const idDoGrupo = partida.grupo_id || partida.group_id;
 
@@ -61,9 +57,26 @@ function iniciarCronJobs(client) {
 
           if (titulares.length > 0) {
             const mentionsIds = titulares.map((t) => t.jogador_id);
-            const msg = `⏰ *TÁ NA HORA!* ⏰\nA Lobby #${partida.numero_lobby} (${partida.titulo}) estava marcada para as *${partida.horario}*!\n\nBora pro jogo, titulares! (Não esqueçam de mandar *!start* quando fechar a sala).`;
+            // Limite dinâmico: Mix precisa de 10, Lobby de 5
+            const limiteJogadores = partida.tipo === "MIX" ? 10 : 5;
+            const tipo = partida.tipo; // "MIX" ou "LOBBY"
 
-            await mencionarJogadores(chat, msg, mentionsIds);
+            let mensagem;
+            if (titulares.length >= limiteJogadores) {
+              // Sala completa
+              mensagem =
+                `⏰ *TÁ NA HORA!* ⏰\n` +
+                `O ${tipo} #${partida.numero_lobby} (${partida.titulo}) estava marcado para as *${partida.horario}*!\n\n` +
+                `Bora pro jogo, titulares! Mandem *!start* para fechar a sala.`;
+            } else {
+              // Sala incompleta
+              mensagem =
+                `⏰ *Chegou o horário do ${tipo} #${partida.numero_lobby}, mas ainda faltam jogadores!* ` +
+                `(${titulares.length}/${limiteJogadores})\n\n` +
+                `Mandem *!start* para jogar assim mesmo ou *!cancelar* para liberar a fila.`;
+            }
+
+            await mencionarJogadores(chat, mensagem, mentionsIds);
           }
 
           lobbiesAvisadas.add(partida.id);
@@ -74,7 +87,7 @@ function iniciarCronJobs(client) {
     } catch (err) {
       console.error("⚠️ Erro no Cron Job de Alarme:", err.message);
     }
-  }, 60000); // 60.000 ms = 1 minuto
+  }, 60000);
 }
 
 module.exports = { iniciarCronJobs };

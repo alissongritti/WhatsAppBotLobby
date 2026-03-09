@@ -25,46 +25,64 @@ async function criarLobby({
     return;
   }
 
-  // Trava: só bloqueia se alguma lobby ainda tiver vaga de titular
-  const lobbiesAbertas = await partidaService.getPartidasAbertas(groupId);
-  if (lobbiesAbertas.length > 0) {
-    for (const lobby of lobbiesAbertas) {
-      const numTitulares = await partidaService.contarTitulares(lobby.id);
-      if (numTitulares < lobby.max_players) {
-        await msg.reply(
-          `Calma lá! A Lobby #${lobby.numero_lobby} ainda tem vagas para o time titular.\nMande *!eu ${lobby.numero_lobby}* para entrar nela antes de tentar criar outra.`,
-        );
-        return;
-      }
-    }
-  }
-
   // Parse dos parâmetros (horário e título)
   const isMix = comando === "!mix";
   let horario = "";
   let titulo = isMix ? "MIX 5X5" : "LOBBY";
 
-  // --- A MÁGICA DO FALLBACK COM O NOVO PARSER ---
   if (parametro) {
     const primeiraPalavra = parametro.split(" ")[0];
-
-    // Passa a primeira palavra pelo nosso tradutor rigoroso
     const horarioFormatado = parseHorario(primeiraPalavra);
 
     if (horarioFormatado) {
-      // Se era um horário válido (ex: 22h, 22:30), salva no formato HH:mm
       horario = horarioFormatado;
-
-      // E o que sobrou da frase vira o título da sala
       const resto = parametro.substring(primeiraPalavra.length).trim();
       if (resto) titulo = resto.toUpperCase();
     } else {
-      // Se não era um horário válido (ex: "batata", "corujão", ou até o bizarro "25h"),
-      // tudo vira o título da sala e o horário fica vazio!
       titulo = parametro.toUpperCase();
     }
   }
-  // ----------------------------------------------
+
+  // ─── Trava unificada: analisa cada sala aberta e decide o que fazer ───────────
+  // Regras:
+  // - Sala CHEIA → ignora, pode criar nova
+  // - Sala INCOMPLETA + horário passou → cancela por inatividade, pode criar nova
+  // - Sala INCOMPLETA + ainda no prazo → bloqueia criação
+  const agora = new Date();
+  const horaAtualStr =
+    agora.getHours().toString().padStart(2, "0") +
+    ":" +
+    agora.getMinutes().toString().padStart(2, "0");
+
+  let textoAviso = "";
+  const lobbiesAbertas = await partidaService.getPartidasAbertas(groupId);
+
+  for (const lobby of lobbiesAbertas) {
+    const numTitulares = await partidaService.contarTitulares(lobby.id);
+    const estaCheia = numTitulares >= lobby.max_players;
+
+    // Se a lobby não tem horário definido, tratamos como "ainda no prazo"
+    // para evitar cancelamento acidental de salas sem horário marcado
+    const horarioPassou = lobby.horario ? horaAtualStr > lobby.horario : false;
+
+    if (estaCheia) {
+      // Sala cheia — ignora e deixa criar a próxima
+      continue;
+    }
+
+    if (horarioPassou) {
+      // Sala incompleta e horário já passou — cancela e avisa
+      await partidaService.cancelarLobby(lobby.id);
+      textoAviso = `♻️ *O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) foi cancelado por inatividade.*\n\n`;
+    } else {
+      // Sala incompleta e ainda no prazo — bloqueia criação
+      await msg.reply(
+        `Calma lá! O ${lobby.tipo} #${lobby.numero_lobby} ainda tem vagas para o time titular.\nMande *!eu ${lobby.numero_lobby}* para entrar nela antes de tentar criar outra.`,
+      );
+      return;
+    }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
 
   const maxPlayers = isMix ? 10 : 5;
   const tipo = isMix ? "MIX" : "LOBBY";
@@ -83,7 +101,8 @@ async function criarLobby({
   const partidaId = result.lastID;
   await jogadorService.adicionarJogador(partidaId, senderId, "TITULAR");
 
-  let texto = `🎮 *${tipo} #${numeroLobby}: ${titulo} - ABERTA* 🎮\n`;
+  let texto = textoAviso; // Inclui aviso de sala morta se houver
+  texto += `🎮 *${tipo} #${numeroLobby}: ${titulo} - ABERTA* 🎮\n`;
   if (horario) texto += `⏰ *Horário:* ${horario}\n`;
   texto += `\n${await gerarListaTexto(partidaId, maxPlayers)}`;
   texto += `\nMande *!eu ${numeroLobby}* para entrar!`;
