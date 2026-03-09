@@ -60,30 +60,19 @@ async function listarJogosBR({ msg }) {
   );
 }
 
-async function listarResultados({ msg, parametro }) {
+async function listarResultados({ msg }) {
   const resultados = await hltvService.getResultados();
 
-  // Filtra só BR se o usuário mandou "!resultados br"
-  const apenasB = parametro?.toLowerCase() === "br";
-  const lista = apenasB
-    ? resultados.filter((r) => hltvService.ehBR(r.time1, r.time2))
-    : resultados;
-
-  if (lista.length === 0) {
-    const msgVazia = apenasB
-      ? "🇧🇷 Nenhum resultado de time brasileiro ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!"
-      : "😴 Nenhum resultado ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!";
-    await msg.reply(msgVazia);
+  if (resultados.length === 0) {
+    await msg.reply(
+      "😴 Nenhum resultado ainda hoje.\n\nMande *!jogos* para ver os jogos que ainda vão acontecer!",
+    );
     return;
   }
 
-  const header = apenasB
-    ? `🇧🇷 *RESULTADOS DOS BRAZUCAS HOJE* 🇧🇷\n\n`
-    : `📊 *RESULTADOS DE HOJE* 📊\n\n`;
+  let texto = `📊 *RESULTADOS DE HOJE* 📊\n\n`;
 
-  let texto = header;
-
-  lista.slice(0, 10).forEach((r) => {
+  resultados.slice(0, 10).forEach((r) => {
     const isBR = hltvService.ehBR(r.time1, r.time2);
     const destaque = isBR ? " 🇧🇷" : "";
     const placar =
@@ -97,4 +86,34 @@ async function listarResultados({ msg, parametro }) {
   await msg.reply(texto.trim());
 }
 
-module.exports = { listarJogos, listarJogosBR, listarResultados };
+async function listarResultadosBR({ msg }) {
+  const resultados = await hltvService.getResultados();
+  const lista = resultados.filter((r) => hltvService.ehBR(r.time1, r.time2));
+
+  if (lista.length === 0) {
+    await msg.reply(
+      "🇧🇷 Nenhum resultado de time brasileiro até o momento.\n\nMande *!jogosbr* para ver os jogos que ainda vão acontecer!",
+    );
+    return;
+  }
+
+  let texto = `🇧🇷 *RESULTADOS DOS BRAZUCAS HOJE* 🇧🇷\n\n`;
+
+  lista.slice(0, 10).forEach((r) => {
+    const placar =
+      r.score1 !== null && r.score2 !== null
+        ? ` *(${r.score1} x ${r.score2})*`
+        : "";
+    texto += `${r.time1} x ${r.time2}${placar}\n`;
+    texto += `🏆 ${r.evento}\n\n`;
+  });
+
+  await msg.reply(texto.trim());
+}
+
+module.exports = {
+  listarJogos,
+  listarJogosBR,
+  listarResultados,
+  listarResultadosBR,
+};
