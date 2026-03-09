@@ -54,5 +54,5 @@ module.exports = {
   revogarGrupo,
   obterDiscord,
   setDiscord,
-  salvarDiscord: setDiscord, // Deixei um alias aqui caso seu comando use salvarDiscord no lugar de setDiscord
+  setDiscord,
 };
