@@ -148,7 +148,7 @@ async function setDiscord({ msg, chat, parametro, senderId, groupId }) {
   }
 
   const link = parametro.trim();
-  await grupoService.salvarDiscord(groupId, link);
+  await grupoService.setDiscord(groupId, link);
   await msg.reply(
     `✅ Link do Discord atualizado com sucesso para este grupo!\n\n🔗 ${link}`,
   );
