@@ -125,6 +125,7 @@ async function listarNovidades({ msg }) {
   try {
     itens = await fetchUltimasAtualizacoes(1);
   } catch (err) {
+    console.error("❌ Erro ao buscar configs:", err.message, err.stack);
     await msg.reply(
       "❌ Não foi possível buscar as atualizações agora. Tente novamente mais tarde.",
     );

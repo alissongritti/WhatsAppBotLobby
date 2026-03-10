@@ -42,6 +42,7 @@ function extrairTabelas($) {
 
 async function getConfigs(jogador) {
   const url = `${BASE_URL}/${jogador.toLowerCase()}/`;
+  console.log("🔍 Buscando configs para:", url); //
 
   const { data } = await axios.get(url, { headers: HEADERS });
   const $ = cheerio.load(data);
