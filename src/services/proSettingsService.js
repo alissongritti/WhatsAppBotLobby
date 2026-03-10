@@ -1,26 +1,7 @@
+const puppeteer = require("puppeteer");
 const cheerio = require("cheerio");
 
 const BASE_URL = "https://prosettings.net/players";
-
-// Headers muito mais agressivos para simular 100% um navegador real
-const HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-  "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-  "Accept-Encoding": "gzip, deflate, br",
-  "Sec-Ch-Ua":
-    '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
-  "Sec-Ch-Ua-Mobile": "?0",
-  "Sec-Ch-Ua-Platform": '"Windows"',
-  "Sec-Fetch-Dest": "document",
-  "Sec-Fetch-Mode": "navigate",
-  "Sec-Fetch-Site": "none",
-  "Sec-Fetch-User": "?1",
-  "Upgrade-Insecure-Requests": "1",
-  "Cache-Control": "max-age=0",
-};
 
 // Extrai todas as tabelas como { secao: { chave: valor } }
 function extrairTabelas($) {
@@ -58,21 +39,33 @@ async function getConfigs(jogador) {
   const url = `${BASE_URL}/${jogador.toLowerCase()}/`;
   console.log("🔍 Buscando configs para:", url);
 
+  let browser;
   try {
-    // Trocando Axios pelo fetch nativo do Node.js
-    const response = await fetch(url, {
-      method: "GET",
-      headers: HEADERS,
+    // Abre um navegador invisível no Linux
+    browser = await puppeteer.launch({
+      headless: "new",
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-blink-features=AutomationControlled", // O disfarce perfeito
+      ],
     });
 
-    if (!response.ok) {
-      console.log(
-        `⚠️ Prosettings bloqueou ou não achou. Status: ${response.status}`,
-      );
-      return null;
-    }
+    const page = await browser.newPage();
 
-    const data = await response.text();
+    // Finge ser um usuário comum no Windows
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    );
+
+    // Carrega a página (espera no máximo 15 segundos)
+    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
+
+    // Extrai o HTML cru da página e fecha o navegador para não gastar memória
+    const data = await page.content();
+    await browser.close();
+
     const $ = cheerio.load(data);
 
     // Verifica se a página existe (algumas vezes o site redireciona para a home em vez de dar 404)
@@ -91,7 +84,7 @@ async function getConfigs(jogador) {
     // Mouse
     const mouse = tabelas["Mouse"] ?? {};
 
-    // Crosshair — só os campos essenciais
+    // Crosshair
     const crosshairRaw = tabelas["Crosshair"] ?? {};
     const crosshair = {
       Style: crosshairRaw["Style"],
@@ -103,18 +96,19 @@ async function getConfigs(jogador) {
       Dot: crosshairRaw["Dot"],
     };
 
-    // Código da mira — extrai direto do HTML com regex
+    // Código da mira
     const codigoMira =
       (data.match(
         /CSGO-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}/,
       ) || [])[0] ?? null;
 
-    // Vídeo — tabelas 6 e 7 (resolução + configurações gráficas)
+    // Vídeo
     const video = { ...tabelas["tabela_6"], ...tabelas["tabela_7"] };
 
     return { nomeReal, time, mouse, crosshair, codigoMira, video, url };
   } catch (error) {
-    console.error("❌ Erro na requisição do getConfigs:", error.message);
+    if (browser) await browser.close(); // Garante que o Chrome não fique rodando solto em caso de erro
+    console.error("❌ Erro no Puppeteer ao buscar configs:", error.message);
     return null;
   }
 }
