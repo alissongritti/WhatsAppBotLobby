@@ -3,10 +3,6 @@ const {
   fetchUltimasAtualizacoes,
   formatarAtualizacao,
 } = require("../services/rssService");
-const {
-  getConfigs,
-  formatarConfigs,
-} = require("../services/proSettingsService");
 
 function formatarHora(timestamp) {
   if (!timestamp) return "🔴 AO VIVO";
@@ -142,36 +138,10 @@ async function listarNovidades({ msg }) {
   }
 }
 
-async function configJogador({ msg, parametro }) {
-  if (!parametro) {
-    await msg.reply("❓ Informe o nome do jogador.\nExemplo: *!config fallen*");
-    return;
-  }
-
-  try {
-    const configs = await getConfigs(parametro);
-
-    if (!configs) {
-      await msg.reply(
-        `❌ Jogador *${parametro}* não encontrado no prosettings.net.\n\nVerifique o nome e tente novamente. Ex: *!config niko*`,
-      );
-      return;
-    }
-
-    await msg.reply(formatarConfigs(configs));
-  } catch (err) {
-    console.error("❌ Erro ao buscar configs:", err.message);
-    await msg.reply(
-      "❌ Não foi possível buscar as configurações agora. Tente novamente mais tarde.",
-    );
-  }
-}
-
 module.exports = {
   listarJogos,
   listarJogosBR,
   listarResultados,
   listarResultadosBR,
   listarNovidades,
-  configJogador,
 };
