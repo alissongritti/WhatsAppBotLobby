@@ -3,7 +3,6 @@ const cheerio = require("cheerio");
 
 const BASE_URL = "https://prosettings.net/players";
 
-// Extrai todas as tabelas como { secao: { chave: valor } }
 function extrairTabelas($) {
   const resultado = {};
 
@@ -41,50 +40,36 @@ async function getConfigs(jogador) {
 
   let browser;
   try {
-    // Abre um navegador invisível no Linux
     browser = await puppeteer.launch({
       headless: "new",
       args: [
         "--no-sandbox",
         "--disable-setuid-sandbox",
         "--disable-dev-shm-usage",
-        "--disable-blink-features=AutomationControlled", // O disfarce perfeito
+        "--disable-blink-features=AutomationControlled",
       ],
     });
 
     const page = await browser.newPage();
-
-    // Finge ser um usuário comum no Windows
     await page.setUserAgent(
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     );
-
-    // Carrega a página (espera no máximo 15 segundos)
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 15000 });
 
-    // Extrai o HTML cru da página e fecha o navegador para não gastar memória
     const data = await page.content();
     await browser.close();
 
     const $ = cheerio.load(data);
-
-    // Verifica se a página existe (algumas vezes o site redireciona para a home em vez de dar 404)
     const titulo = $("h1").first().text().trim();
-    if (!titulo || titulo.toLowerCase().includes("pro settings")) {
-      return null;
-    }
+    if (!titulo || titulo.toLowerCase().includes("pro settings")) return null;
 
     const tabelas = extrairTabelas($);
 
-    // Perfil
     const perfil = tabelas["tabela_1"] ?? {};
     const nomeReal = perfil["Name"] ?? jogador;
     const time = perfil["Team"] ?? "–";
 
-    // Mouse
     const mouse = tabelas["Mouse"] ?? {};
-
-    // Crosshair
     const crosshairRaw = tabelas["Crosshair"] ?? {};
     const crosshair = {
       Style: crosshairRaw["Style"],
@@ -96,18 +81,15 @@ async function getConfigs(jogador) {
       Dot: crosshairRaw["Dot"],
     };
 
-    // Código da mira
     const codigoMira =
       (data.match(
         /CSGO-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}-[a-zA-Z0-9]{5}/,
       ) || [])[0] ?? null;
-
-    // Vídeo
     const video = { ...tabelas["tabela_6"], ...tabelas["tabela_7"] };
 
     return { nomeReal, time, mouse, crosshair, codigoMira, video, url };
   } catch (error) {
-    if (browser) await browser.close(); // Garante que o Chrome não fique rodando solto em caso de erro
+    if (browser) await browser.close();
     console.error("❌ Erro no Puppeteer ao buscar configs:", error.message);
     return null;
   }
@@ -123,10 +105,8 @@ function formatarConfigs({
   url,
 }) {
   const linha = (label, valor) => (valor ? `  • *${label}:* ${valor}\n` : "");
-
   let texto = `🎮 *${nomeReal}* (${time})\n\n`;
 
-  // Mouse
   if (Object.keys(mouse).length > 0) {
     texto += `🖱️ *Mouse*\n`;
     texto += linha("DPI", mouse["DPI"]);
@@ -136,7 +116,6 @@ function formatarConfigs({
     texto += "\n";
   }
 
-  // Crosshair
   const crosshairFiltrado = Object.entries(crosshair).filter(([, v]) => v);
   if (crosshairFiltrado.length > 0) {
     texto += `➕ *Crosshair*\n`;
@@ -146,13 +125,10 @@ function formatarConfigs({
     texto += "\n";
   }
 
-  // Código da mira
   if (codigoMira) {
-    texto += `🔑 *Crosshair Code*\n`;
-    texto += `  ${codigoMira}\n\n`;
+    texto += `🔑 *Crosshair Code*\n  ${codigoMira}\n\n`;
   }
 
-  // Vídeo
   if (Object.keys(video).length > 0) {
     texto += `🖥️ *Vídeo*\n`;
     texto += linha("Resolution", video["Resolution"]);
@@ -162,7 +138,6 @@ function formatarConfigs({
   }
 
   texto += `🔗 ${url}`;
-
   return texto.trim();
 }
 
