@@ -3,6 +3,8 @@ const cheerio = require("cheerio");
 const { getDb } = require("../database");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Adicione esta linha para espionarmos:
+console.log("🔑 Status da Chave Gemini:", process.env.GEMINI_API_KEY ? "CARREGADA" : "UNDEFINED VAZIO");
 // Inicializa o parser e o Gemini
 const parser = new Parser();
 const CS2_RSS_URL = "https://steamcommunity.com/games/csgo/rss/";
