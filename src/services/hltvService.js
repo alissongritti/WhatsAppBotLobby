@@ -42,9 +42,9 @@ async function precisaAtualizar(tabela, intervaloMs) {
 // ─── Atualização do Cache ─────────────────────────────────────────────────────
 
 async function atualizarJogos() {
-  const UMA_HORA_MS = 60 * 60 * 1000;
+  const QUINZE_MIN_MS = 15 * 60 * 1000;
 
-  if (!(await precisaAtualizar("hltv_jogos", UMA_HORA_MS))) {
+  if (!(await precisaAtualizar("hltv_jogos", QUINZE_MIN_MS))) {
     console.log("✅ Cache de jogos ainda válido, pulando requisição.");
     return;
   }
