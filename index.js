@@ -7,7 +7,9 @@ async function main() {
   await iniciarBanco();
   const db = getDb();
   await db.run("DELETE FROM config WHERE chave LIKE 'rss_%'");
-  console.log("🧹 MEMÓRIA DO RSS RESETADA! O Gemini vai tentar resumir agora.");
+  console.log(
+    "🧹 MEMÓRIA DO RSS RESETADA! O Gemini vai tentar resumir na próxima.",
+  );
   initBot();
 }
 
