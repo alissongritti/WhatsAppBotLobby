@@ -78,7 +78,7 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
   // Injetando a variável na mensagem para resolver o erro de "value is never read"
   await mencionarJogadores(
     chat,
-    `⏰ *HORÁRIO ALTERADO PARA ${horarioFormatado}* ⏰\n\n${listaAtualizada}`,
+    `⏰ *HORÁRIO ALTERADO PARA ${horarioFormatado}* \n\n${listaAtualizada}`,
     mentionsIds,
   );
 }
