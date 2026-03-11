@@ -25,7 +25,7 @@ function limparHtml(html) {
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
-    .map((l) => l.replace(/^\*\s+/, "• "))
+    .map((l) => l.replace(/^(\w[\w\s]*)•/, "$1\n•"))
     .map((l) => l.replace(/\\\[/g, "["))
     .join("\n")
     .trim();
