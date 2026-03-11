@@ -4,6 +4,27 @@ const {
   formatarAtualizacao,
 } = require("../services/rssService");
 
+// --- SISTEMA DE ANTI-SPAM (COOLDOWN) ---
+const travasDeSpam = new Map();
+const TEMPO_SILENCIO = 5 * 60 * 1000; // 5 minutos de trava por comando/grupo
+
+function emCooldown(comando, idChat) {
+  const chave = `${comando}_${idChat}`;
+  const agora = Date.now();
+
+  if (travasDeSpam.has(chave)) {
+    const ultimoUso = travasDeSpam.get(chave);
+    if (agora - ultimoUso < TEMPO_SILENCIO) {
+      return true; // Está no período de silêncio (bloqueia)
+    }
+  }
+
+  // Se passou, atualiza o relógio e libera
+  travasDeSpam.set(chave, agora);
+  return false;
+}
+// ---------------------------------------
+
 function formatarHora(timestamp) {
   if (!timestamp) return "🔴 AO VIVO";
   return new Date(timestamp).toLocaleTimeString("pt-BR", {
@@ -13,7 +34,9 @@ function formatarHora(timestamp) {
   });
 }
 
-async function listarJogos({ msg }) {
+async function listarJogos({ msg, chat }) {
+  if (emCooldown("jogos", chat.id._serialized)) return;
+
   const jogos = await hltvService.getJogos();
 
   if (jogos.length === 0) {
@@ -36,7 +59,9 @@ async function listarJogos({ msg }) {
   await msg.reply(texto.trim());
 }
 
-async function listarJogosBR({ msg }) {
+async function listarJogosBR({ msg, chat }) {
+  if (emCooldown("jogosbr", chat.id._serialized)) return;
+
   const { ativos, encerrados } = await hltvService.getJogosBR();
 
   if (ativos.length > 0) {
@@ -64,7 +89,9 @@ async function listarJogosBR({ msg }) {
   );
 }
 
-async function listarResultados({ msg }) {
+async function listarResultados({ msg, chat }) {
+  if (emCooldown("resultados", chat.id._serialized)) return;
+
   const resultados = await hltvService.getResultados();
 
   if (resultados.length === 0) {
@@ -90,7 +117,9 @@ async function listarResultados({ msg }) {
   await msg.reply(texto.trim());
 }
 
-async function listarResultadosBR({ msg }) {
+async function listarResultadosBR({ msg, chat }) {
+  if (emCooldown("resultadosbr", chat.id._serialized)) return;
+
   const resultados = await hltvService.getResultados();
   const lista = resultados.filter((r) => hltvService.ehBR(r.time1, r.time2));
 
@@ -115,13 +144,15 @@ async function listarResultadosBR({ msg }) {
   await msg.reply(texto.trim());
 }
 
-async function listarNovidades({ msg }) {
+async function listarNovidades({ msg, chat }) {
+  if (emCooldown("novidades", chat.id._serialized)) return;
+
   let itens;
 
   try {
     itens = await fetchUltimasAtualizacoes(1);
   } catch (err) {
-    console.error("❌ Erro ao buscar configs:", err.message, err.stack);
+    console.error("❌ Erro ao buscar novidades:", err.message, err.stack);
     await msg.reply(
       "❌ Não foi possível buscar as atualizações agora. Tente novamente mais tarde.",
     );

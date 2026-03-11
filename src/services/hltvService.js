@@ -112,9 +112,9 @@ async function atualizarJogos() {
 }
 
 async function atualizarResultados() {
-  const CINCO_MIN_MS = 5 * 60 * 1000;
+  const TRINTA_MIN_MS = 30 * 60 * 1000;
 
-  if (!(await precisaAtualizar("hltv_resultados", CINCO_MIN_MS))) {
+  if (!(await precisaAtualizar("hltv_resultados", TRINTA_MIN_MS))) {
     console.log("✅ Cache de resultados ainda válido.");
     return;
   }
@@ -169,7 +169,6 @@ async function atualizarResultados() {
 
 // ─── Funções públicas ─────────────────────────────────────────────────────────
 
-// Retorna jogos ao vivo + jogos futuros (data_jogo >= agora)
 async function getJogos() {
   await atualizarJogos();
   const db = getDb();
@@ -180,14 +179,11 @@ async function getJogos() {
     ORDER BY ao_vivo DESC, data_jogo ASC
   `);
 
-  // ao_vivo = 1 sempre aparece; futuros aparecem se data_jogo >= agora
   return todos.filter(
     (j) => j.ao_vivo === 1 || (j.data_jogo && j.data_jogo >= agora),
   );
 }
 
-// Retorna jogos BR ao vivo + futuros. Se só houver jogos passados, retorna-os
-// separadamente para o cmd exibir a mensagem inteligente.
 async function getJogosBR() {
   await atualizarJogos();
   const db = getDb();
