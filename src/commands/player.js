@@ -168,17 +168,15 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
 
 // ─── COMANDO: !kick (REMOVER) ─────────────────────────────────────────────────
 async function kick({ msg, chat, parametro, senderId, groupId }) {
-  if (!parametro) return msg.reply("⚠️ Use *!kick [posição]* (ex: !kick 2)");
+  if (!parametro)
+    return msg.reply(
+      "⚠️ Use *!kick [posição]* ou *!kick @jogador*\nExemplos: *!kick 2* ou *!kick @Fulano*",
+    );
 
-  const posicao = parseInt(parametro);
   const abertas = await partidaService.getPartidasAbertas(groupId);
   if (abertas.length === 0) return msg.reply("❌ Nenhuma lobby aberta.");
 
-  let partidaAlvo =
-    abertas.length === 1
-      ? abertas[0]
-      : abertas.find((p) => p.criador_id === senderId);
-
+  // ─── Permissão ────────────────────────────────────────────────────────────
   let isGroupAdmin = false;
   try {
     const participant = chat.participants.find(
@@ -188,21 +186,57 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
       participant && (participant.isAdmin || participant.isSuperAdmin);
   } catch (e) {}
 
+  let partidaAlvo =
+    abertas.length === 1
+      ? abertas[0]
+      : abertas.find((p) => p.criador_id === senderId);
+
   if (!partidaAlvo && isGroupAdmin) partidaAlvo = abertas[0];
   if (!partidaAlvo || (!isGroupAdmin && partidaAlvo.criador_id !== senderId)) {
     return msg.reply("⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.");
   }
 
-  if (posicao > partidaAlvo.max_players)
-    return msg.reply(`⚠️ Vaga inválida (Max: ${partidaAlvo.max_players}).`);
-
+  // ─── Resolver alvo: posição (número) ou menção (@) ───────────────────────
   const titulares = await jogadorService.getTitulares(partidaAlvo.id);
-  const jogadorAlvo = titulares[posicao - 1];
+  let jogadorAlvo = null;
+  let descricaoAlvo = "";
 
-  if (!jogadorAlvo) return msg.reply(`⚠️ A vaga ${posicao} está vazia.`);
+  const posicao = parseInt(parametro);
+  const ehMencao = parametro.startsWith("@") || msg.mentionedIds?.length > 0;
+
+  if (!isNaN(posicao)) {
+    // ── Modo posição: !kick 2 ──────────────────────────────────────────────
+    if (posicao < 1 || posicao > partidaAlvo.max_players)
+      return msg.reply(`⚠️ Posição inválida (1 a ${partidaAlvo.max_players}).`);
+
+    jogadorAlvo = titulares[posicao - 1] ?? null;
+    descricaoAlvo = `posição ${posicao}`;
+
+    if (!jogadorAlvo) return msg.reply(`⚠️ A posição ${posicao} está vazia.`);
+  } else if (ehMencao) {
+    // ── Modo menção: !kick @Fulano ─────────────────────────────────────────
+    // Pega o ID da menção — o WhatsApp passa via msg.mentionedIds
+    const mencionadoId = msg.mentionedIds?.[0];
+    if (!mencionadoId)
+      return msg.reply("⚠️ Não consegui identificar o jogador mencionado.");
+
+    jogadorAlvo = titulares.find((t) => t.jogador_id === mencionadoId) ?? null;
+    descricaoAlvo = `menção`;
+
+    if (!jogadorAlvo)
+      return msg.reply(
+        "⚠️ Esse jogador não está na lista de titulares desta lobby.",
+      );
+  } else {
+    return msg.reply(
+      "⚠️ Formato inválido. Use *!kick 2* (posição) ou *!kick @Fulano* (menção).",
+    );
+  }
+
   if (jogadorAlvo.jogador_id === senderId)
-    return msg.reply("Usa o comando *!sair*.");
+    return msg.reply("Usa o comando *!sair* para sair da lista.");
 
+  // ─── Executa o kick ───────────────────────────────────────────────────────
   await jogadorService.removerJogadorPartida(
     partidaAlvo.id,
     jogadorAlvo.jogador_id,
@@ -229,7 +263,7 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
   }
 
   let textoKick = `👢 *KICK EFETUADO!* 👢\n`;
-  textoKick += `*${nomeKickado}* foi removido da posição ${posicao}.\n\n`;
+  textoKick += `*${nomeKickado}* foi removido${descricaoAlvo === "menção" ? "" : ` da posição ${posicao}`}.\n\n`;
   textoKick += await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players);
 
   if (promovidoNome) {

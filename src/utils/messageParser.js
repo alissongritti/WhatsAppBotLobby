@@ -64,6 +64,8 @@ async function parseMessage(msg, chat) {
   ]);
   const nome = nickRow ? nickRow.nome : contact.pushname || contact.number;
 
+  const mentionedIds = (await msg.getMentions()).map((m) => m.id._serialized);
+
   return {
     msg,
     chat,
@@ -72,6 +74,7 @@ async function parseMessage(msg, chat) {
     senderId,
     nome,
     groupId: chat.id._serialized,
+    mentionedIds,
   };
 }
 
