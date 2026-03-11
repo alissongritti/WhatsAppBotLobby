@@ -28,8 +28,8 @@ CONTEÚDO: ${textoPuro}
 
 Sua tarefa:
 1. Faça um resumo direto ao ponto das mudanças, em português do Brasil.
-2. Use bullet points curtos com emojis.
-3. Use jargões e gírias da comunidade brasileira de CS (ex: TR, CT, smoke, pixel, varado, nerf, buff).
+2. Use uma lista com o caractere "•" ou emojis de CS (como 🔫, 💣, 📍) no início de cada linha para os tópicos.
+3. Não use asteriscos (*) para criar listas, use apenas para NEGRITO em termos importantes.
 4. NUNCA traduza nomes de mapas (Dust2, Mirage, Nuke, Overpass, etc) nem de armas.
 5. O formato da sua resposta deve ser EXATAMENTE este, pronto para o WhatsApp:
 
