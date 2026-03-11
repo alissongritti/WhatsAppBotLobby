@@ -54,6 +54,7 @@ Sua tarefa:
     return response.text().trim();
   } catch (err) {
     console.error("❌ Erro ao gerar resumo no Gemini:", err.message);
+    console.error("❌ Detalhes:", JSON.stringify(err, null, 2));
     return `🔔 *CS2 UPDATE* 🔔\n📋 *${titulo}*\n📅 ${dataPub}\n\n⚠️ Saiu um patch novo, mas minha IA tá desarmando a C4 e não conseguiu resumir.\n🔗 ${link}`;
   }
 }
