@@ -105,6 +105,12 @@ function initBot() {
       console.error("⚠️ Erro ao processar mensagem:", err.message);
     }
   });
+  if (!ADMIN_WA_ID) {
+    console.warn(
+      "⚠️  ADMIN_WA_ID não definido! Aprovação de grupos desativada.",
+    );
+  }
+
   client.initialize();
 }
 

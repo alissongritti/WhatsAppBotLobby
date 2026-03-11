@@ -148,6 +148,14 @@ async function setDiscord({ msg, chat, parametro, senderId, groupId }) {
   }
 
   const link = parametro.trim();
+
+  if (!link.startsWith("https://")) {
+    await msg.reply(
+      "⚠️ Link inválido! O link precisa começar com *https://*\nExemplo: *!setdiscord https://discord.gg/seulink*",
+    );
+    return;
+  }
+
   await grupoService.setDiscord(groupId, link);
   await msg.reply(
     `✅ Link do Discord atualizado com sucesso para este grupo!\n\n🔗 ${link}`,

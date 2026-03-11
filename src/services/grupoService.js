@@ -54,5 +54,4 @@ module.exports = {
   revogarGrupo,
   obterDiscord,
   setDiscord,
-  setDiscord,
 };
