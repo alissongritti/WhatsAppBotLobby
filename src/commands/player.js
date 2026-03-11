@@ -3,8 +3,23 @@ const jogadorService = require("../services/jogadorService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 const grupoService = require("../services/grupoService");
 
+// ─── DEBOUNCE ANTI-SPAM ───────────────────────────────────────────────────────
+// Impede que o mesmo jogador dispare duas operações simultâneas (race condition).
+// O bloqueio dura apenas 3 segundos — tempo suficiente para o banco responder.
+const jogadoresEmOperacao = new Set();
+const DEBOUNCE_MS = 3000;
+
+function bloquearJogador(senderId) {
+  if (jogadoresEmOperacao.has(senderId)) return false; // já está processando
+  jogadoresEmOperacao.add(senderId);
+  setTimeout(() => jogadoresEmOperacao.delete(senderId), DEBOUNCE_MS);
+  return true;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 // ─── COMANDO: !eu (ENTRAR) ────────────────────────────────────────────────────
 async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
+  if (!bloquearJogador(senderId)) return; // silencioso — é spam acidental
   // Regra da monogamia: jogador não pode estar em duas partidas
   const jaEstaEmLobby = await partidaService.getPartidaDoJogador(
     groupId,
@@ -60,6 +75,7 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
 // ─── COMANDO: !sair (SAIR) ────────────────────────────────────────────────────
 async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
+  if (!bloquearJogador(senderId)) return; // silencioso — é spam acidental
   let partidaAlvo = null;
 
   if (parametro) {
