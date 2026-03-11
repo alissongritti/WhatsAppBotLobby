@@ -101,10 +101,8 @@ async function criarLobby({
   const partidaId = result.lastID;
   await jogadorService.adicionarJogador(partidaId, senderId, "TITULAR");
 
-  let texto = textoAviso; // Inclui aviso de sala morta se houver
-  texto += `🎮 *${tipo} #${numeroLobby}: ${titulo} - ABERTA* 🎮\n`;
-  if (horario) texto += `⏰ *Horário:* ${horario}\n`;
-  texto += `\n${await gerarListaTexto(partidaId, maxPlayers)}`;
+  let texto = textoAviso;
+  texto += await gerarListaTexto(partidaId, maxPlayers); // O cabeçalho já vem incluso!
   texto += `\nMande *!eu ${numeroLobby}* para entrar!`;
 
   await marcarTodos(chat, texto);

@@ -2,18 +2,13 @@ const { getDb } = require("../database");
 
 async function resolverNomeJogador(jogadorId) {
   const db = getDb();
-
-  // 1. Tenta achar o Nick no banco de dados primeiro
   const nickRow = await db.get("SELECT nome FROM nicks WHERE id = ?", [
     jogadorId,
   ]);
   if (nickRow) return nickRow.nome;
 
-  // 2. Se não tem Nick, busca o nome do WhatsApp
   try {
-    // 🔥 O TRUQUE AQUI: Lazy Loading! Importa o bot só na hora exata de usar.
     const { getClient } = require("../bot");
-
     const contact = await getClient().getContactById(jogadorId);
     return contact.pushname || contact.name || contact.number;
   } catch (e) {
@@ -25,7 +20,13 @@ async function resolverNomeJogador(jogadorId) {
 async function gerarListaTexto(partidaId, maxPlayers) {
   const db = getDb();
 
-  // Busca titulares e suplentes em apenas 2 queries
+  // 1. BUSCA OS DADOS DA PARTIDA (O pulo do gato para o cabeçalho não sumir)
+  const partida = await db.get(
+    "SELECT tipo, numero_lobby, titulo, horario FROM partidas WHERE id = ?",
+    [partidaId],
+  );
+
+  // 2. Busca titulares e suplentes
   const jogadores = await db.all(
     "SELECT jogador_id FROM jogadores_partida WHERE partida_id = ? AND papel = 'TITULAR' ORDER BY id ASC",
     [partidaId],
@@ -35,7 +36,6 @@ async function gerarListaTexto(partidaId, maxPlayers) {
     [partidaId],
   );
 
-  // Busca todos os nicks de uma vez só (Performance)
   const todosIds = [...jogadores, ...suplentes].map((j) => j.jogador_id);
   const placeholders = todosIds.map(() => "?").join(",");
   const nicksRows =
@@ -48,13 +48,22 @@ async function gerarListaTexto(partidaId, maxPlayers) {
 
   const nicksMap = Object.fromEntries(nicksRows.map((r) => [r.id, r.nome]));
 
-  // Monta nomes (com fallback para WhatsApp API apenas para quem não tem nick)
   const resolverNome = async (jogadorId) => {
     if (nicksMap[jogadorId]) return nicksMap[jogadorId];
     return resolverNomeJogador(jogadorId);
   };
 
+  // 3. MONTA O CABEÇALHO (Se a partida existir)
   let texto = "";
+  if (partida) {
+    texto += `🎮 *${partida.tipo} #${partida.numero_lobby}: ${partida.titulo}* 🎮\n`;
+    if (partida.horario) {
+      texto += `⏰ *Horário:* ${partida.horario}\n`;
+    }
+    texto += `\n`;
+  }
+
+  // 4. Monta a lista de jogadores
   for (let i = 0; i < maxPlayers; i++) {
     if (jogadores[i]) {
       const nome = await resolverNome(jogadores[i].jogador_id);
