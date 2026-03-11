@@ -9,7 +9,7 @@ const { initBot } = require("./src/bot");
 
 async function main() {
   await iniciarBanco();
-
+  await getDb().run("DELETE FROM config WHERE chave LIKE 'rss_%'");
   initBot();
 }
 
