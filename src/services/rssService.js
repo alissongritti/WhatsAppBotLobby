@@ -43,9 +43,12 @@ Sua tarefa:
 
   try {
     // Usando o 1.5-pro para garantir maior compatibilidade e inteligência
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash", // Voltamos pro Flash que é mais rápido e grátis
-    });
+    const model = genAI.getGenerativeModel(
+      {
+        model: "gemini-1.5-flash",
+      },
+      { apiVersion: "v1" },
+    );
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text().trim();
