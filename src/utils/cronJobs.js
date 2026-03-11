@@ -55,18 +55,19 @@ function iniciarCronJobs(client) {
         ultimaVerificacaoRSS = agoraMs;
 
         try {
-          const novaAtualizacao = await verificarNovaAtualizacao();
+          // Já volta o textão mastigado pela IA, ou null se não tiver patch novo
+          const resumoPronto = await verificarNovaAtualizacao();
 
-          if (novaAtualizacao) {
+          if (resumoPronto) {
             console.log(
-              `📰 Nova atualização CS2 detectada: ${novaAtualizacao.title}`,
+              `📰 Notificando grupos sobre nova atualização do CS2...`,
             );
             const grupos = await getGruposAutorizados();
-            const mensagem = await formatarAtualizacao(novaAtualizacao);
 
             for (const grupo of grupos) {
               try {
-                await client.sendMessage(grupo.id_grupo, mensagem);
+                // Manda direto a string pronta!
+                await client.sendMessage(grupo.id_grupo, resumoPronto);
               } catch (e) {
                 console.error(
                   `⚠️ Erro ao notificar grupo ${grupo.id_grupo}:`,

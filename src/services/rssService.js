@@ -1,165 +1,80 @@
 const Parser = require("rss-parser");
 const cheerio = require("cheerio");
-const axios = require("axios");
 const { getDb } = require("../database");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Inicializa o parser e o Gemini
 const parser = new Parser();
-
 const CS2_RSS_URL = "https://steamcommunity.com/games/csgo/rss/";
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// Nomes que não devem ser traduzidos
-const NOMES_PRESERVAR = [
-  "Warden",
-  "Sanctum",
-  "Inferno",
-  "Mirage",
-  "Nuke",
-  "Dust2",
-  "Anubis",
-  "Ancient",
-  "Vertigo",
-  "Cache",
-  "Train",
-  "Overpass",
-  "Cobblestone",
-  "Baggage",
-  "Agency",
-  "Office",
-  "Italy",
-  "Canals",
-  "Shoreline",
-];
+// ─── O Cérebro (Integração com Gemini) ────────────────────────────────────────
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+async function resumirComIA(titulo, conteudoHtml, dataPub, link) {
+  // O cheerio agora só serve pra limpar as tags de HTML e economizar tokens da IA
+  const $ = cheerio.load(conteudoHtml || "");
+  const textoPuro = $.text().trim();
 
-function limparHtml(html) {
-  if (!html) return "";
+  // O Prompt do "Tech Lead" de CS2
+  const prompt = `Você é um jogador experiente de Counter-Strike 2.
+A Valve lançou as seguintes notas de atualização (patch notes) em inglês:
 
-  const $ = cheerio.load(html);
+TÍTULO: ${titulo}
+CONTEÚDO: ${textoPuro}
 
-  $("li").each((_, el) => {
-    $(el).replaceWith(`• ${$(el).text().trim()}\n`);
-  });
+Sua tarefa:
+1. Faça um resumo direto ao ponto das mudanças, em português do Brasil.
+2. Use bullet points curtos com emojis.
+3. Use jargões e gírias da comunidade brasileira de CS (ex: TR, CT, smoke, pixel, varado, nerf, buff).
+4. NUNCA traduza nomes de mapas (Dust2, Mirage, Nuke, Overpass, etc) nem de armas.
+5. O formato da sua resposta deve ser EXATAMENTE este, pronto para o WhatsApp:
 
-  $("br").replaceWith("\n");
+🔔 *CS2 UPDATE* 🔔
+📋 *[Escreva o Título Traduzido/Adaptado]*
+📅 ${dataPub}
 
-  return $.text()
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0)
-    .map((l) => l.replace(/^\*\s+/, "• "))
-    .map((l) => l.replace(/\\\[/g, "["))
-    .join("\n")
-    .trim();
-}
+[Seus bullet points resumidos aqui]
 
-async function traduzirTexto(texto) {
-  if (!texto) return texto;
-
-  // Protege nomes de mapas/termos com placeholders antes de traduzir
-  const substituicoes = [];
-  let textoProtegido = texto;
-
-  NOMES_PRESERVAR.forEach((nome, i) => {
-    const regex = new RegExp(`\\b${nome}\\b`, "gi");
-    if (regex.test(textoProtegido)) {
-      textoProtegido = textoProtegido.replace(regex, `__NOME${i}__`);
-      substituicoes.push({ placeholder: `__NOME${i}__`, original: nome });
-    }
-  });
+🔗 ${link}`;
 
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(textoProtegido)}`;
-    const { data } = await axios.get(url, { timeout: 5000 });
-    let resultado = data[0].map((parte) => parte[0]).join("");
-
-    // Restaura os nomes originais
-    substituicoes.forEach(({ placeholder, original }) => {
-      resultado = resultado.replace(new RegExp(placeholder, "g"), original);
-    });
-
-    return resultado;
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const result = await model.generateContent(prompt);
+    return result.response.text().trim();
   } catch (err) {
-    console.error("⚠️ Erro ao traduzir bloco:", err.message);
-    return texto; // Se falhar, retorna o original em inglês
+    console.error("❌ Erro ao gerar resumo no Gemini:", err.message);
+    // Fallback de segurança se a API cair
+    return `🔔 *CS2 UPDATE* 🔔\n📋 *${titulo}*\n📅 ${dataPub}\n\n⚠️ Saiu um patch novo, mas minha IA tá desarmando a C4 e não conseguiu resumir.\n🔗 ${link}`;
   }
 }
 
-async function traduzirBlocos(texto) {
-  if (!texto) return texto;
+// ─── Banco de Dados (Cache Permanente) ────────────────────────────────────────
 
-  const linhas = texto.split("\n");
-  const blocos = [];
-  let blocoAtual = "";
-
-  for (const linha of linhas) {
-    if ((blocoAtual + "\n" + linha).length > 500) {
-      if (blocoAtual) blocos.push(blocoAtual.trim());
-      blocoAtual = linha;
-    } else {
-      blocoAtual += (blocoAtual ? "\n" : "") + linha;
-    }
-  }
-  if (blocoAtual) blocos.push(blocoAtual.trim());
-
-  const traduzidos = await Promise.all(blocos.map(traduzirTexto));
-  return traduzidos.join("\n");
-}
-
-// ─── Formatação ───────────────────────────────────────────────────────────────
-
-async function formatarAtualizacao(item, completo = false) {
-  const titulo = item.title ?? "New Update";
-  const link = item.link ?? "";
-  const data = item.pubDate
-    ? new Date(item.pubDate).toLocaleDateString("pt-BR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        timeZone: "America/Sao_Paulo",
-      })
-    : "";
-
-  const tituloTraduzido = await traduzirTexto(titulo);
-
-  let texto =
-    `🔔 *CS2 UPDATE* 🔔\n\n` +
-    `📋 *${tituloTraduzido}*\n` +
-    (data ? `📅 ${data}\n` : "");
-
-  if (completo && item.content) {
-    const conteudo = limparHtml(item.content);
-    if (conteudo) {
-      const traduzido = await traduzirBlocos(conteudo);
-      const truncado =
-        traduzido.length > 1500
-          ? traduzido.substring(0, 1500) + "\n\n_(continua no link)_"
-          : traduzido;
-      texto += `\n${truncado}\n`;
-    }
-  }
-
-  if (link) texto += `\n🔗 ${link}`;
-
-  return texto;
-}
-
-// ─── Banco ────────────────────────────────────────────────────────────────────
-
-async function getUltimoGuidSalvo() {
+async function getDadosSalvos() {
   const db = getDb();
-  const row = await db.get(
+  const guidRow = await db.get(
     "SELECT valor FROM config WHERE chave = 'rss_ultimo_guid'",
   );
-  return row?.valor ?? null;
+  const resumoRow = await db.get(
+    "SELECT valor FROM config WHERE chave = 'rss_ultimo_resumo'",
+  );
+  return {
+    guid: guidRow?.valor ?? null,
+    resumo: resumoRow?.valor ?? null,
+  };
 }
 
-async function salvarUltimoGuid(guid) {
+async function salvarDados(guid, resumoIA) {
   const db = getDb();
   await db.run(
     `INSERT INTO config (chave, valor) VALUES ('rss_ultimo_guid', ?)
      ON CONFLICT(chave) DO UPDATE SET valor = ?`,
     [guid, guid],
+  );
+  await db.run(
+    `INSERT INTO config (chave, valor) VALUES ('rss_ultimo_resumo', ?)
+     ON CONFLICT(chave) DO UPDATE SET valor = ?`,
+    [resumoIA, resumoIA], // Salvamos o textão inteiro formatado no banco!
   );
 }
 
@@ -168,30 +83,61 @@ async function getGruposAutorizados() {
   return db.all("SELECT id_grupo FROM grupos WHERE autorizado = 1");
 }
 
-// ─── Funções públicas ─────────────────────────────────────────────────────────
+// ─── Funções Públicas ─────────────────────────────────────────────────────────
 
+// Usada pelo Cronjob para vigiar a Steam (só gasta API se tiver patch novo)
 async function verificarNovaAtualizacao() {
   const feed = await parser.parseURL(CS2_RSS_URL);
   const item = feed.items?.[0];
   if (!item) return null;
 
-  const ultimoGuid = await getUltimoGuidSalvo();
-  if (item.guid !== ultimoGuid) {
-    await salvarUltimoGuid(item.guid);
-    return item;
+  const salvos = await getDadosSalvos();
+
+  // Se o GUID for diferente, tem atualização nova!
+  if (item.guid !== salvos.guid) {
+    console.log(
+      "📰 Nova atualização do CS2! Acordando o Gemini para resumir...",
+    );
+
+    const dataPub = item.pubDate
+      ? new Date(item.pubDate).toLocaleDateString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          timeZone: "America/Sao_Paulo",
+        })
+      : "Hoje";
+
+    const resumoIA = await resumirComIA(
+      item.title,
+      item.content,
+      dataPub,
+      item.link,
+    );
+    await salvarDados(item.guid, resumoIA);
+
+    return resumoIA; // Retorna a string pronta pro WhatsApp
   }
 
-  return null;
+  return null; // Nada novo sob o sol
 }
 
-async function fetchUltimasAtualizacoes(quantidade = 1) {
-  const feed = await parser.parseURL(CS2_RSS_URL);
-  return feed.items?.slice(0, quantidade) ?? [];
+// Usada pelo comando !novidades no WhatsApp (Custo ZERO, lê direto do SQLite)
+async function getUltimoResumo() {
+  const salvos = await getDadosSalvos();
+
+  if (salvos.resumo) {
+    console.log("⚡ Retornando resumo das novidades direto do SQLite");
+    return salvos.resumo;
+  }
+
+  // Se o banco estiver vazio (primeira vez rodando), força a buscar e resumir
+  const textoNovo = await verificarNovaAtualizacao();
+  return textoNovo ?? "😴 Nenhuma atualização encontrada no momento.";
 }
 
 module.exports = {
   verificarNovaAtualizacao,
-  fetchUltimasAtualizacoes,
+  getUltimoResumo,
   getGruposAutorizados,
-  formatarAtualizacao,
 };

@@ -1,8 +1,5 @@
 const hltvService = require("../services/hltvService");
-const {
-  fetchUltimasAtualizacoes,
-  formatarAtualizacao,
-} = require("../services/rssService");
+const { getUltimoResumo } = require("../services/rssService");
 
 // --- SISTEMA DE ANTI-SPAM (COOLDOWN) ---
 const travasDeSpam = new Map();
@@ -147,25 +144,12 @@ async function listarResultadosBR({ msg, chat }) {
 async function listarNovidades({ msg, chat }) {
   if (emCooldown("novidades", chat.id._serialized)) return;
 
-  let itens;
-
   try {
-    itens = await fetchUltimasAtualizacoes(1);
+    const textoResumo = await getUltimoResumo();
+    await msg.reply(textoResumo);
   } catch (err) {
-    console.error("❌ Erro ao buscar novidades:", err.message, err.stack);
-    await msg.reply(
-      "❌ Não foi possível buscar as atualizações agora. Tente novamente mais tarde.",
-    );
-    return;
-  }
-
-  if (itens.length === 0) {
-    await msg.reply("😴 Nenhuma atualização encontrada no momento.");
-    return;
-  }
-
-  for (const item of itens) {
-    await msg.reply(await formatarAtualizacao(item, true));
+    console.error("❌ Erro ao buscar novidades:", err.message);
+    await msg.reply("❌ Não foi possível ler as notas da atualização agora.");
   }
 }
 
