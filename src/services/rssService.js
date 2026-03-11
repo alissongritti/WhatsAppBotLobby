@@ -7,9 +7,31 @@ const parser = new Parser();
 
 const CS2_RSS_URL = "https://steamcommunity.com/games/csgo/rss/";
 
+// Nomes que não devem ser traduzidos
+const NOMES_PRESERVAR = [
+  "Warden",
+  "Sanctum",
+  "Inferno",
+  "Mirage",
+  "Nuke",
+  "Dust2",
+  "Anubis",
+  "Ancient",
+  "Vertigo",
+  "Cache",
+  "Train",
+  "Overpass",
+  "Cobblestone",
+  "Baggage",
+  "Agency",
+  "Office",
+  "Italy",
+  "Canals",
+  "Shoreline",
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// Converte HTML do patch note em texto limpo para WhatsApp
 function limparHtml(html) {
   if (!html) return "";
 
@@ -25,26 +47,44 @@ function limparHtml(html) {
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
-    .map((l) => l.replace(/^(\w[\w\s]*)•/, "$1\n•"))
+    .map((l) => l.replace(/^\*\s+/, "• "))
     .map((l) => l.replace(/\\\[/g, "["))
     .join("\n")
     .trim();
 }
 
-// Traduz um único texto via Google Translate público (sem API key)
 async function traduzirTexto(texto) {
   if (!texto) return texto;
+
+  // Protege nomes de mapas/termos com placeholders antes de traduzir
+  const substituicoes = [];
+  let textoProtegido = texto;
+
+  NOMES_PRESERVAR.forEach((nome, i) => {
+    const regex = new RegExp(`\\b${nome}\\b`, "gi");
+    if (regex.test(textoProtegido)) {
+      textoProtegido = textoProtegido.replace(regex, `__NOME${i}__`);
+      substituicoes.push({ placeholder: `__NOME${i}__`, original: nome });
+    }
+  });
+
   try {
-    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(texto)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(textoProtegido)}`;
     const { data } = await axios.get(url, { timeout: 5000 });
-    return data[0].map((parte) => parte[0]).join("");
+    let resultado = data[0].map((parte) => parte[0]).join("");
+
+    // Restaura os nomes originais
+    substituicoes.forEach(({ placeholder, original }) => {
+      resultado = resultado.replace(new RegExp(placeholder, "g"), original);
+    });
+
+    return resultado;
   } catch (err) {
     console.error("⚠️ Erro ao traduzir bloco:", err.message);
     return texto; // Se falhar, retorna o original em inglês
   }
 }
 
-// Divide o texto em blocos de até 500 chars e traduz em paralelo
 async function traduzirBlocos(texto) {
   if (!texto) return texto;
 
@@ -80,7 +120,6 @@ async function formatarAtualizacao(item, completo = false) {
       })
     : "";
 
-  // Traduz o título
   const tituloTraduzido = await traduzirTexto(titulo);
 
   let texto =
