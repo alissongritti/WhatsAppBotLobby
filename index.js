@@ -2,7 +2,7 @@ if (typeof globalThis.File === "undefined") {
   globalThis.File = class File {};
 }
 
-const { iniciarBanco } = require("./src/database");
+const { iniciarBanco, getDb } = require("./src/database");
 const { initBot } = require("./src/bot");
 
 async function main() {
