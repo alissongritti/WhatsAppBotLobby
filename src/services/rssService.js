@@ -44,9 +44,12 @@ Sua tarefa:
 
   try {
     // Usando o 1.5-pro para garantir maior compatibilidade e inteligência
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.5-flash", // Voltamos pro Flash que é mais rápido e grátis
+    });
     const result = await model.generateContent(prompt);
-    return result.response.text().trim();
+    const response = await result.response;
+    return response.text().trim();
   } catch (err) {
     console.error("❌ Erro ao gerar resumo no Gemini:", err.message);
     return `🔔 *CS2 UPDATE* 🔔\n📋 *${titulo}*\n📅 ${dataPub}\n\n⚠️ Saiu um patch novo, mas minha IA tá desarmando a C4 e não conseguiu resumir.\n🔗 ${link}`;

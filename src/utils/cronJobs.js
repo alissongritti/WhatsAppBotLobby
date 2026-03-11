@@ -5,7 +5,6 @@ const { getDb } = require("../database");
 const {
   verificarNovaAtualizacao,
   getGruposAutorizados,
-  formatarAtualizacao,
 } = require("../services/rssService");
 
 let ultimaLimpeza = "";

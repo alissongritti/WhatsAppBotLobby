@@ -1,14 +1,12 @@
-if (typeof globalThis.File === "undefined") {
-  globalThis.File = class File {};
-}
-
-require("dotenv").config();
-
 const { iniciarBanco, getDb } = require("./src/database");
 const { initBot } = require("./src/bot");
 
+require("dotenv").config();
+
 async function main() {
   await iniciarBanco();
+
+  await getDb().run("DELETE FROM config WHERE chave LIKE 'rss_%'");
   initBot();
 }
 
