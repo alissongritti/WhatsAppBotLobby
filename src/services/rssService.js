@@ -1,5 +1,6 @@
 const Parser = require("rss-parser");
 const cheerio = require("cheerio");
+const axios = require("axios");
 const { getDb } = require("../database");
 
 const parser = new Parser();
@@ -14,26 +15,60 @@ function limparHtml(html) {
 
   const $ = cheerio.load(html);
 
-  // Converte <li> em bullet points
   $("li").each((_, el) => {
     $(el).replaceWith(`• ${$(el).text().trim()}\n`);
   });
 
-  // Converte <br> em quebra de linha
   $("br").replaceWith("\n");
 
-  // Pega o texto limpo e remove linhas vazias extras
   return $.text()
     .split("\n")
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .map((l) => l.replace(/^\*\s+/, "• "))
-    .map((l) => l.replace(/\\\[/g, "[")) // ← adiciona essa linha
+    .map((l) => l.replace(/\\\[/g, "["))
     .join("\n")
     .trim();
 }
 
-function formatarAtualizacao(item, completo = false) {
+// Traduz um único texto via Google Translate público (sem API key)
+async function traduzirTexto(texto) {
+  if (!texto) return texto;
+  try {
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pt&dt=t&q=${encodeURIComponent(texto)}`;
+    const { data } = await axios.get(url, { timeout: 5000 });
+    return data[0].map((parte) => parte[0]).join("");
+  } catch (err) {
+    console.error("⚠️ Erro ao traduzir bloco:", err.message);
+    return texto; // Se falhar, retorna o original em inglês
+  }
+}
+
+// Divide o texto em blocos de até 500 chars e traduz em paralelo
+async function traduzirBlocos(texto) {
+  if (!texto) return texto;
+
+  const linhas = texto.split("\n");
+  const blocos = [];
+  let blocoAtual = "";
+
+  for (const linha of linhas) {
+    if ((blocoAtual + "\n" + linha).length > 500) {
+      if (blocoAtual) blocos.push(blocoAtual.trim());
+      blocoAtual = linha;
+    } else {
+      blocoAtual += (blocoAtual ? "\n" : "") + linha;
+    }
+  }
+  if (blocoAtual) blocos.push(blocoAtual.trim());
+
+  const traduzidos = await Promise.all(blocos.map(traduzirTexto));
+  return traduzidos.join("\n");
+}
+
+// ─── Formatação ───────────────────────────────────────────────────────────────
+
+async function formatarAtualizacao(item, completo = false) {
   const titulo = item.title ?? "New Update";
   const link = item.link ?? "";
   const data = item.pubDate
@@ -45,20 +80,22 @@ function formatarAtualizacao(item, completo = false) {
       })
     : "";
 
+  // Traduz o título
+  const tituloTraduzido = await traduzirTexto(titulo);
+
   let texto =
     `🔔 *CS2 UPDATE* 🔔\n\n` +
-    `📋 *${titulo}*\n` +
+    `📋 *${tituloTraduzido}*\n` +
     (data ? `📅 ${data}\n` : "");
 
-  // No !novidades mostra o conteúdo, na notificação automática só o título + link
   if (completo && item.content) {
     const conteudo = limparHtml(item.content);
     if (conteudo) {
-      // Limita a 1500 chars para não estourar o WhatsApp
+      const traduzido = await traduzirBlocos(conteudo);
       const truncado =
-        conteudo.length > 1500
-          ? conteudo.substring(0, 1500) + "\n\n_(continua no link)_"
-          : conteudo;
+        traduzido.length > 1500
+          ? traduzido.substring(0, 1500) + "\n\n_(continua no link)_"
+          : traduzido;
       texto += `\n${truncado}\n`;
     }
   }
@@ -94,7 +131,6 @@ async function getGruposAutorizados() {
 
 // ─── Funções públicas ─────────────────────────────────────────────────────────
 
-// Verifica se tem patch note novo — retorna o item ou null
 async function verificarNovaAtualizacao() {
   const feed = await parser.parseURL(CS2_RSS_URL);
   const item = feed.items?.[0];
@@ -109,8 +145,7 @@ async function verificarNovaAtualizacao() {
   return null;
 }
 
-// Retorna as N últimas atualizações para o !novidades
-async function fetchUltimasAtualizacoes(quantidade = 3) {
+async function fetchUltimasAtualizacoes(quantidade = 1) {
   const feed = await parser.parseURL(CS2_RSS_URL);
   return feed.items?.slice(0, quantidade) ?? [];
 }

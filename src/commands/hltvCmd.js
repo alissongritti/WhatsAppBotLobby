@@ -165,7 +165,7 @@ async function listarNovidades({ msg, chat }) {
   }
 
   for (const item of itens) {
-    await msg.reply(formatarAtualizacao(item, true));
+    await msg.reply(await formatarAtualizacao(item, true));
   }
 }
 
