@@ -1,4 +1,7 @@
-require("dotenv").config();
+if (typeof globalThis.File === "undefined") {
+  globalThis.File = class File {};
+}
+
 const { iniciarBanco } = require("./src/database");
 const { initBot } = require("./src/bot");
 
