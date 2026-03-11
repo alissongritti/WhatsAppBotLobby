@@ -27,11 +27,11 @@ TÍTULO: ${titulo}
 CONTEÚDO: ${textoPuro}
 
 Sua tarefa:
-1. Faça um resumo direto ao ponto das mudanças, em português do Brasil.
-2. Use uma lista com o caractere "•" ou emojis de CS (como 🔫, 💣, 📍) no início de cada linha para os tópicos.
-3. Não use asteriscos (*) para criar listas, use apenas para NEGRITO em termos importantes.
-4. NUNCA traduza nomes de mapas (Dust2, Mirage, Nuke, Overpass, etc) nem de armas.
-5. O formato da sua resposta deve ser EXATAMENTE este, pronto para o WhatsApp:
+1. Faça um resumo direto ao ponto em português do Brasil.
+2. Use uma lista com emojis (🔫, 💰, 📍) no início das linhas.
+3. NUNCA misture negrito com itálico na mesma palavra ou frase.
+4. Para destacar palavras, use APENAS o negrito simples do WhatsApp: *palavra*. 
+5. Evite usar dois ou três asteriscos juntos (ex: ** ou ***). Use sempre apenas um asterisco de cada lado para negrito: *exemplo*.
 
 🔔 *CS2 UPDATE* 🔔
 📋 *[Escreva o Título Traduzido/Adaptado]*
