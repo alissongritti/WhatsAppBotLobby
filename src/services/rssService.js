@@ -13,11 +13,10 @@ console.log(
   process.env.GEMINI_API_KEY ? "CARREGADA" : "UNDEFINED VAZIO",
 );
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 // ─── O Cérebro (Integração com Gemini) ────────────────────────────────────────
 
 async function resumirComIA(titulo, conteudoHtml, dataPub, link) {
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const $ = cheerio.load(conteudoHtml || "");
   const textoPuro = $.text().trim();
 
