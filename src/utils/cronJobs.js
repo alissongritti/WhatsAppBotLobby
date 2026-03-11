@@ -62,7 +62,7 @@ function iniciarCronJobs(client) {
               `📰 Nova atualização CS2 detectada: ${novaAtualizacao.title}`,
             );
             const grupos = await getGruposAutorizados();
-            const mensagem = formatarAtualizacao(novaAtualizacao);
+            const mensagem = await formatarAtualizacao(novaAtualizacao);
 
             for (const grupo of grupos) {
               try {
