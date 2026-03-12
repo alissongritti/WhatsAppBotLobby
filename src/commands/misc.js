@@ -11,7 +11,7 @@ async function meunick({ msg, parametro, senderId }) {
       );
     } else {
       await msg.reply(
-        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!nick Sonzera*",
+        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!meunick Sonzera*",
       );
     }
     return;
@@ -44,10 +44,8 @@ async function status({ msg, chat, groupId }) {
     const numTitulares = await partidaService.contarTitulares(partida.id);
     const vagasRestantes = partida.max_players - numTitulares;
 
-    let texto = `ℹ️ *STATUS DA PARTIDA #${partida.numero_lobby}* ℹ️\n`;
-    texto += `🎮 *Lobby: ${partida.titulo}*\n`;
-    if (partida.horario) texto += `⏰ *Horário:* ${partida.horario}\n`;
-    texto += `\n${await gerarListaTexto(partida.id, partida.max_players)}`;
+    // gerarListaTexto já inclui o cabeçalho (tipo, número, título, horário)
+    let texto = await gerarListaTexto(partida.id, partida.max_players);
 
     if (vagasRestantes === 0) {
       texto += `\n🔥 A lista principal tá cheia! Mas você pode mandar *!eu ${partida.numero_lobby}* pra ir pro banco de reservas.`;

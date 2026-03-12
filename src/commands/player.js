@@ -53,10 +53,17 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
     let textoFinal = await gerarListaTexto(partidaAlvo.id, maxPlayers);
 
     if (vagasRestantes === 0) {
-      textoFinal += `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
       textoFinal += linkDiscord
-        ? `\n🎧 Bora para o discord - ${linkDiscord}`
-        : `\n🎧 Bora para o discord - (Admins: usem !setdiscord para configurar)`;
+        ? `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`
+        : `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
+
+      if (partidaAlvo.horario) {
+        textoFinal += `\n⏰ Te espero no server às *${partidaAlvo.horario}*!`;
+      }
+
+      if (linkDiscord) {
+        textoFinal += `\n🎧 Bora para o discord - ${linkDiscord}`;
+      }
     } else {
       textoFinal += `\n✅ *${nome}* entrou! Restam *${vagasRestantes}* vagas.`;
     }
@@ -212,7 +219,8 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
     jogadorAlvo = titulares[posicao - 1] ?? null;
     descricaoAlvo = `posição ${posicao}`;
 
-    if (!jogadorAlvo) return msg.reply(`⚠️ A posição ${posicao} está vazia.`);
+    if (!jogadorAlvo)
+      return msg.reply(`⚠️ A posição ${posicao} está vazia.`);
   } else if (ehMencao) {
     // ── Modo menção: !kick @Fulano ─────────────────────────────────────────
     // Pega o ID da menção — o WhatsApp passa via msg.mentionedIds
