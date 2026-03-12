@@ -11,7 +11,7 @@ async function meunick({ msg, parametro, senderId }) {
       );
     } else {
       await msg.reply(
-        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!meunick Sonzera*",
+        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!nick Sonzera*",
       );
     }
     return;
