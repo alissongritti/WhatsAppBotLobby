@@ -24,6 +24,16 @@ async function getPartidaDoAdmin(groupId, senderId) {
   );
 }
 
+async function getPartidaDoTitular(groupId, senderId) {
+  const db = getDb();
+  return db.get(
+    `SELECT p.* FROM partidas p
+     JOIN jogadores_partida jp ON p.id = jp.partida_id
+     WHERE p.group_id = ? AND jp.jogador_id = ? AND jp.papel = 'TITULAR' AND p.status = 'ABERTA'`,
+    [groupId, senderId],
+  );
+}
+
 async function getPartidaDoJogador(groupId, senderId) {
   const db = getDb();
   return db.get(
@@ -143,6 +153,7 @@ module.exports = {
   getPartidasAbertas,
   getPartidaPorLobby,
   getPartidaDoAdmin,
+  getPartidaDoTitular,
   getPartidaDoJogador,
   getPartidasDoJogador,
   contarTitulares,

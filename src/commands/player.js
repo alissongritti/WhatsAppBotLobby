@@ -174,7 +174,7 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
 }
 
 // ─── COMANDO: !kick (REMOVER) ─────────────────────────────────────────────────
-async function kick({ msg, chat, parametro, senderId, groupId }) {
+async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
   if (!parametro)
     return msg.reply(
       "⚠️ Use *!kick [posição]* ou *!kick @jogador*\nExemplos: *!kick 2* ou *!kick @Fulano*",
@@ -184,6 +184,7 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
   if (abertas.length === 0) return msg.reply("❌ Nenhuma lobby aberta.");
 
   // ─── Permissão ────────────────────────────────────────────────────────────
+  const isSuperAdmin = senderId === process.env.ADMIN_WA_ID;
   let isGroupAdmin = false;
   try {
     const participant = chat.participants.find(
@@ -193,43 +194,78 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
       participant && (participant.isAdmin || participant.isSuperAdmin);
   } catch (e) {}
 
-  let partidaAlvo =
-    abertas.length === 1
-      ? abertas[0]
-      : abertas.find((p) => p.criador_id === senderId);
+  const temPermissao = isSuperAdmin || isGroupAdmin;
+  const lobbyDoSender = abertas.find((p) => p.criador_id === senderId);
 
-  if (!partidaAlvo && isGroupAdmin) partidaAlvo = abertas[0];
-  if (!partidaAlvo || (!isGroupAdmin && partidaAlvo.criador_id !== senderId)) {
-    return msg.reply("⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.");
+  // ─── Resolver qual lobby sofre o kick ────────────────────────────────────
+  // Regras:
+  // - 1 lobby aberta → usa ela sempre
+  // - 2+ lobbies: dono usa a sua; admin/superadmin precisa especificar com !kick [jogador] [#lobby]
+  let partidaAlvo = null;
+
+  if (abertas.length === 1) {
+    // Só existe uma — mas ainda precisa ter permissão
+    if (!lobbyDoSender && !temPermissao) {
+      return msg.reply(
+        "⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.",
+      );
+    }
+    partidaAlvo = abertas[0];
+  } else {
+    // Mais de uma lobby aberta
+    if (lobbyDoSender) {
+      // Sender é dono de uma delas — usa a dele
+      partidaAlvo = lobbyDoSender;
+    } else if (temPermissao) {
+      // Admin/SuperAdmin sem lobby própria — exige que especifique o número da lobby
+      // Tenta ler o último token do parâmetro como número de lobby: ex "2 1" = posição 2 lobby #1
+      const tokens = parametro.trim().split(/\s+/);
+      const lobbyNum = parseInt(tokens[tokens.length - 1]);
+
+      if (!isNaN(lobbyNum) && tokens.length > 1) {
+        partidaAlvo = abertas.find((p) => p.numero_lobby === lobbyNum) ?? null;
+        if (!partidaAlvo)
+          return msg.reply(
+            `⚠️ Lobby #${lobbyNum} não encontrada ou não está aberta.`,
+          );
+        // Remove o número da lobby do parâmetro para não confundir o parser de posição/menção
+        parametro = tokens.slice(0, -1).join(" ");
+      } else {
+        // Não especificou — lista as opções
+        let aviso = `⚠️ Há ${abertas.length} lobbies abertas. Especifique qual:\n\n`;
+        abertas.forEach((p) => {
+          aviso += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+        });
+        aviso += `\nExemplo: *!kick 2 ${abertas[0].numero_lobby}* ou *!kick @Fulano ${abertas[0].numero_lobby}*`;
+        return msg.reply(aviso);
+      }
+    } else {
+      return msg.reply(
+        "⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.",
+      );
+    }
   }
 
   // ─── Resolver alvo: posição (número) ou menção (@) ───────────────────────
   const titulares = await jogadorService.getTitulares(partidaAlvo.id);
   let jogadorAlvo = null;
-  let descricaoAlvo = "";
+  let posicao = null;
 
-  const posicao = parseInt(parametro);
-  const ehMencao = parametro.startsWith("@") || msg.mentionedIds?.length > 0;
+  const posicaoTentativa = parseInt(parametro);
+  const temMencao = mentionedIds && mentionedIds.length > 0;
 
-  if (!isNaN(posicao)) {
+  if (!isNaN(posicaoTentativa)) {
     // ── Modo posição: !kick 2 ──────────────────────────────────────────────
+    posicao = posicaoTentativa;
     if (posicao < 1 || posicao > partidaAlvo.max_players)
       return msg.reply(`⚠️ Posição inválida (1 a ${partidaAlvo.max_players}).`);
 
     jogadorAlvo = titulares[posicao - 1] ?? null;
-    descricaoAlvo = `posição ${posicao}`;
-
-    if (!jogadorAlvo)
-      return msg.reply(`⚠️ A posição ${posicao} está vazia.`);
-  } else if (ehMencao) {
-    // ── Modo menção: !kick @Fulano ─────────────────────────────────────────
-    // Pega o ID da menção — o WhatsApp passa via msg.mentionedIds
-    const mencionadoId = msg.mentionedIds?.[0];
-    if (!mencionadoId)
-      return msg.reply("⚠️ Não consegui identificar o jogador mencionado.");
-
+    if (!jogadorAlvo) return msg.reply(`⚠️ A posição ${posicao} está vazia.`);
+  } else if (temMencao) {
+    // ── Modo menção: !kick @Fulano — usa mentionedIds do contexto ──────────
+    const mencionadoId = mentionedIds[0];
     jogadorAlvo = titulares.find((t) => t.jogador_id === mencionadoId) ?? null;
-    descricaoAlvo = `menção`;
 
     if (!jogadorAlvo)
       return msg.reply(
@@ -271,7 +307,9 @@ async function kick({ msg, chat, parametro, senderId, groupId }) {
   }
 
   let textoKick = `👢 *KICK EFETUADO!* 👢\n`;
-  textoKick += `*${nomeKickado}* foi removido${descricaoAlvo === "menção" ? "" : ` da posição ${posicao}`}.\n\n`;
+  textoKick += posicao
+    ? `*${nomeKickado}* foi removido da posição ${posicao}.\n\n`
+    : `*${nomeKickado}* foi removido da lobby.\n\n`;
   textoKick += await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players);
 
   if (promovidoNome) {
