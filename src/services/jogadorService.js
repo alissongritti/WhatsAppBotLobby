@@ -26,6 +26,14 @@ async function removerJogador(registroId) {
   await db.run("DELETE FROM jogadores_partida WHERE id = ?", [registroId]);
 }
 
+async function removerJogadorPartida(partidaId, jogadorId) {
+  const db = getDb();
+  await db.run(
+    "DELETE FROM jogadores_partida WHERE partida_id = ? AND jogador_id = ?",
+    [partidaId, jogadorId],
+  );
+}
+
 async function getRegistroJogador(partidaId, jogadorId) {
   const db = getDb();
   return db.get(
@@ -112,6 +120,7 @@ module.exports = {
   setNick,
   adicionarJogador,
   removerJogador,
+  removerJogadorPartida,
   getRegistroJogador,
   getTitulares,
   getSuplentes,
