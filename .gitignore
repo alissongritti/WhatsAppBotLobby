@@ -15,6 +15,7 @@ nicks.json
 # Logs e arquivos de sistema
 npm-debug.log*
 .DS_Store
+GEMINI.md
 
 # Banco de dados SQLite
 *.sqlite
