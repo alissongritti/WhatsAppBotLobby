@@ -63,29 +63,40 @@ async function listarJogosBR({ msg, chat }) {
 
   const { ativos, encerrados } = await hltvService.getJogosBR();
 
-  if (ativos.length > 0) {
-    let texto = `🇧🇷 *JOGOS DOS BRAZUCAS HOJE* 🇧🇷\n\n`;
+  let texto = `🇧🇷 *BRAZUCAS NO CS2 HOJE* 🇧🇷\n\n`;
+  let temConteudo = false;
 
+  if (ativos.length > 0) {
+    texto += `🎮 *Jogando / Em breve:*\n`;
     ativos.forEach((jogo) => {
       const hora = formatarHora(jogo.data_jogo);
       texto += `⏰ *${hora}* | ${jogo.time1} x ${jogo.time2}\n`;
       texto += `🏆 ${jogo.evento}\n\n`;
     });
-
-    await msg.reply(texto.trim());
-    return;
+    temConteudo = true;
   }
 
   if (encerrados.length > 0) {
+    texto += `📊 *Resultados de hoje:*\n`;
+    encerrados.forEach((r) => {
+      const placar =
+        r.score1 !== null && r.score2 !== null
+          ? ` *(${r.score1} x ${r.score2})*`
+          : "";
+      texto += `${r.time1} x ${r.time2}${placar}\n`;
+      texto += `🏆 ${r.evento}\n\n`;
+    });
+    temConteudo = true;
+  }
+
+  if (!temConteudo) {
     await msg.reply(
-      "😴 Todos os jogos dos Brazucas de hoje já acabaram!\n\nMande *!resultadosbr* para ver os placares ou aguarde os jogos de amanhã.",
+      "🇧🇷 Nenhum time brasileiro joga hoje.\n\nAguarde os próximos jogos! 💪",
     );
     return;
   }
 
-  await msg.reply(
-    "🇧🇷 Nenhum time brasileiro joga hoje.\n\nAguarde os próximos jogos! 💪",
-  );
+  await msg.reply(texto.trim());
 }
 
 async function listarResultados({ msg, chat }) {

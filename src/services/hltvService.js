@@ -24,9 +24,11 @@ function extrairTimes(match) {
 }
 
 function ehBR(time1, time2) {
+  const t1 = time1.toUpperCase();
+  const t2 = time2.toUpperCase();
   return TIMES_BR.some((br) => {
     const brUp = br.toUpperCase();
-    return time1.toUpperCase() === brUp || time2.toUpperCase() === brUp;
+    return t1.includes(brUp) || t2.includes(brUp);
   });
 }
 
@@ -189,18 +191,24 @@ async function getJogosBR() {
   const db = getDb();
   const agora = Date.now();
 
+  // Margem de 3h para jogos que começaram mas a API ainda não marcou como ao_vivo
+  const MARGEM_INICIO = 3 * 60 * 60 * 1000;
+
   const todos = await db.all(`
     SELECT * FROM hltv_jogos
     ORDER BY ao_vivo DESC, data_jogo ASC
   `);
 
-  const br = todos.filter((j) => ehBR(j.time1, j.time2));
-  const ativos = br.filter(
-    (j) => j.ao_vivo === 1 || (j.data_jogo && j.data_jogo >= agora),
-  );
-  const encerrados = br.filter(
-    (j) => j.ao_vivo === 0 && (!j.data_jogo || j.data_jogo < agora),
-  );
+  const ativos = todos.filter((j) => {
+    const brazuca = ehBR(j.time1, j.time2);
+    const statusValido =
+      j.ao_vivo === 1 || (j.data_jogo && j.data_jogo >= agora - MARGEM_INICIO);
+    return brazuca && statusValido;
+  });
+
+  // Encerrados vêm da tabela de resultados para garantir o placar real
+  const resultados = await getResultados();
+  const encerrados = resultados.filter((r) => ehBR(r.time1, r.time2));
 
   return { ativos, encerrados };
 }
