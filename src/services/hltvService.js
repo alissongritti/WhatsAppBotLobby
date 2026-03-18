@@ -214,4 +214,11 @@ async function getResultados() {
   `);
 }
 
-module.exports = { getJogos, getJogosBR, getResultados, ehBR };
+async function resetarCache() {
+  const db = getDb();
+  await db.run("DELETE FROM hltv_jogos");
+  await db.run("DELETE FROM hltv_resultados");
+  console.log("🧹 Cache HLTV resetado manualmente pelo admin.");
+}
+
+module.exports = { getJogos, getJogosBR, getResultados, ehBR, resetarCache };

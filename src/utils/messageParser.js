@@ -36,6 +36,7 @@ const COMMAND_ALIASES = {
   "!resultados": "!resultados",
   "!resultadosbr": "!resultadosbr",
   "!novidades": "!novidades",
+  "!atualizarjogos": "!atualizarjogos",
 };
 
 async function parseMessage(msg, chat) {

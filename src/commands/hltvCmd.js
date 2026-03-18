@@ -1,6 +1,8 @@
 const hltvService = require("../services/hltvService");
 const { getUltimoResumo } = require("../services/rssService");
 
+const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
+
 // --- SISTEMA DE ANTI-SPAM (COOLDOWN) ---
 const travasDeSpam = new Map();
 const TEMPO_SILENCIO = 5 * 60 * 1000; // 5 minutos de trava por comando/grupo
@@ -153,10 +155,23 @@ async function listarNovidades({ msg, chat }) {
   }
 }
 
+async function atualizarJogosAdmin({ msg, senderId }) {
+  if (senderId !== SUPER_ADMIN_ID) return; // Silencioso — nem avisa que o comando existe
+
+  await hltvService.resetarCache();
+
+  // Força busca imediata chamando getJogos (que vai detectar cache vazio e buscar)
+  await hltvService.getJogos();
+  await hltvService.getResultados();
+
+  await msg.reply("✅ Cache HLTV resetado e atualizado com sucesso!");
+}
+
 module.exports = {
   listarJogos,
   listarJogosBR,
   listarResultados,
   listarResultadosBR,
   listarNovidades,
+  atualizarJogosAdmin,
 };
