@@ -11,9 +11,6 @@ let ultimaLimpeza = "";
 let ultimaVerificacaoRSS = 0;
 const INTERVALO_RSS_MS = 30 * 60 * 1000; // Verifica a cada 30 minutos
 
-// Essa variável guarda os IDs das salas que já apitaram, para não virar spam
-const lobbiesAvisadas = new Set();
-
 // ─── Limpeza do banco HLTV ────────────────────────────────────────────────────
 async function limparCacheHltv() {
   const db = getDb();
@@ -84,13 +81,15 @@ function iniciarCronJobs(client) {
       // ⏰ ALARME DA HORA H
       // ---------------------------------------------------------
       for (const partida of abertas) {
-        if (partida.horario === horaAtual && !lobbiesAvisadas.has(partida.id)) {
+        if (partida.horario <= horaAtual) {
           const idDoGrupo = partida.grupo_id || partida.group_id;
 
           if (!idDoGrupo) {
             console.log(
               `⚠️ Partida #${partida.id} está sem ID do grupo no banco de dados!`,
             );
+            // Marca como disparado para não ficar tentando infinitamente
+            await partidaService.marcarAlarmeDisparado(partida.id);
             continue;
           }
 
@@ -118,9 +117,11 @@ function iniciarCronJobs(client) {
             await mencionarJogadores(chat, mensagem, mentionsIds);
           }
 
-          lobbiesAvisadas.add(partida.id);
-        } else if (partida.horario !== horaAtual) {
-          lobbiesAvisadas.delete(partida.id);
+          // Persiste no banco — sobrevive a restarts
+          await partidaService.marcarAlarmeDisparado(partida.id);
+          console.log(
+            `⏰ Alarme disparado para partida #${partida.numero_lobby} (${partida.horario})`,
+          );
         }
       }
     } catch (err) {

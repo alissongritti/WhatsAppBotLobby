@@ -139,10 +139,17 @@ async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
 
 async function getTodasPartidasComHorario() {
   const db = getDb();
-  // Busca todas as salas abertas que têm um horário preenchido
+  // Busca apenas partidas abertas com horário definido e alarme ainda não disparado
   return db.all(
-    "SELECT * FROM partidas WHERE status = 'ABERTA' AND horario IS NOT NULL AND horario != ''",
+    "SELECT * FROM partidas WHERE status = 'ABERTA' AND horario IS NOT NULL AND horario != '' AND alarme_disparado = 0",
   );
+}
+
+async function marcarAlarmeDisparado(partidaId) {
+  const db = getDb();
+  await db.run("UPDATE partidas SET alarme_disparado = 1 WHERE id = ?", [
+    partidaId,
+  ]);
 }
 
 async function limparPartidasEsquecidas() {
@@ -168,5 +175,6 @@ module.exports = {
   concluirPartida,
   getSuplentesDeOutrasPartidas,
   getTodasPartidasComHorario,
+  marcarAlarmeDisparado,
   limparPartidasEsquecidas,
 };
