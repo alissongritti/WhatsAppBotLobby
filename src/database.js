@@ -91,6 +91,13 @@ async function iniciarBanco() {
   } catch (e) {
     // Coluna já existe, ignora
   }
+
+  try {
+    await db.exec("ALTER TABLE partidas ADD COLUMN cancelada_em DATETIME");
+  } catch (e) {
+    // Coluna já existe, ignora
+  }
+
   console.log("📦 Banco de dados SQLite conectado e pronto!");
 }
 

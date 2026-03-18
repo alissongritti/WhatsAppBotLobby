@@ -97,7 +97,10 @@ async function criarPartida({
 
 async function cancelarPartida(partidaId) {
   const db = getDb();
-  await db.run("DELETE FROM partidas WHERE id = ?", [partidaId]);
+  await db.run(
+    "UPDATE partidas SET status = 'CANCELADA', cancelada_em = datetime('now', 'localtime') WHERE id = ?",
+    [partidaId],
+  );
 }
 
 async function atualizarHorario(partidaId, horario) {

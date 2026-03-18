@@ -1,5 +1,6 @@
 const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
+const statsService = require("../services/statsService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 const grupoService = require("../services/grupoService");
 
@@ -124,6 +125,15 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
 
   if (registro.papel === "SUPLENTE") {
     return chat.sendMessage(`🏃 *${nome}* saiu dos suplentes.`);
+  }
+
+  // Registra arregada se o titular sai de uma lobby com 3+ titulares restantes
+  // (indica que a partida tinha condições de acontecer)
+  const titularesRestantes = await partidaService.contarTitulares(
+    partidaAlvo.id,
+  );
+  if (titularesRestantes >= Math.ceil(partidaAlvo.max_players / 2)) {
+    await statsService.registrarArregada(senderId);
   }
 
   const promovidoId = await jogadorService.promoverPrimeiroSuplente(
