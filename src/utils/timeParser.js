@@ -5,7 +5,7 @@ function parseHorario(texto) {
   let limpo = texto.toLowerCase().trim();
 
   // 2. Troca "horas", "hrs", "hr" ou "h" por dois-pontos ":"
-  limpo = limpo.replace(/horas?|hrs?|h/g, ":").replace(/min/g, "");
+  limpo = limpo.replace(/horas?|hrs?|hs|h/g, ":").replace(/min/g, "");
 
   // 3. Se o cara digitou só "22h", a limpeza acima deixa "22:". Vamos limpar o ":" do final.
   if (limpo.endsWith(":")) limpo = limpo.slice(0, -1);
