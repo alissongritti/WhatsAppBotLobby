@@ -2,16 +2,18 @@ const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 
+const HORAS_AVISO_LOBBY_ANTIGA = 3;
+
 async function meunick({ msg, parametro, senderId }) {
   if (!parametro) {
     const nickRow = await jogadorService.getNick(senderId);
     if (nickRow) {
       await msg.reply(
-        `Seu nick atual é: *${nickRow.nome}*\n\nPara mudar, mande: *!meunick NovoNome*`,
+        `Seu nick atual é: *${nickRow.nome}*\n\nPara mudar, mande: *!nick NovoNome*`,
       );
     } else {
       await msg.reply(
-        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!meunick Sonzera*",
+        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!nick Sonzera*",
       );
     }
     return;
@@ -40,17 +42,29 @@ async function status({ msg, chat, groupId }) {
     return;
   }
 
+  const agora = Date.now();
+  const LIMITE_MS = HORAS_AVISO_LOBBY_ANTIGA * 60 * 60 * 1000;
+
   for (const partida of abertas) {
     const numTitulares = await partidaService.contarTitulares(partida.id);
     const vagasRestantes = partida.max_players - numTitulares;
 
-    // gerarListaTexto já inclui o cabeçalho (tipo, número, título, horário)
     let texto = await gerarListaTexto(partida.id, partida.max_players);
 
     if (vagasRestantes === 0) {
       texto += `\n🔥 A lista principal tá cheia! Mas você pode mandar *!eu ${partida.numero_lobby}* pra ir pro banco de reservas.`;
     } else {
       texto += `\nRestam ${vagasRestantes} vagas! Mande *!eu ${partida.numero_lobby}* para entrar.`;
+    }
+
+    if (!partida.horario && partida.data_criacao) {
+      const dataCriacao = new Date(partida.data_criacao).getTime();
+      const idadeMs = agora - dataCriacao;
+
+      if (idadeMs >= LIMITE_MS) {
+        const horas = Math.floor(idadeMs / (60 * 60 * 1000));
+        texto += `\n\n⏰ *Solta o shift aí, amigão!* Essa lobby tá aberta há *${horas}h* sem horário definido.\nUse *!horario HH:mm* para marcar ou *!cancelar* para liberar a fila.`;
+      }
     }
 
     await chat.sendMessage(texto);
