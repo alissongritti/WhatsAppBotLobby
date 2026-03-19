@@ -6,38 +6,13 @@ const { mencionarJogadores } = require("../utils/mentions");
 const { parseHorario } = require("../utils/timeParser");
 const grupoService = require("../services/grupoService");
 
-const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
-
 async function start({ msg, chat, senderId, groupId }) {
-  // Busca qualquer partida aberta no grupo em que o jogador seja titular
-  let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
-
-  // Se não é o criador, verifica se é titular ou super admin
+  const partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
   if (!partida) {
-    const isSuperAdmin = senderId === SUPER_ADMIN_ID;
-    const partidaComoTitular = await partidaService.getPartidaDoTitular(
-      groupId,
-      senderId,
+    await msg.reply(
+      "Você não é o dono de nenhuma partida aberta no momento para dar start!",
     );
-
-    if (!partidaComoTitular && !isSuperAdmin) {
-      await msg.reply(
-        "⚠️ Você precisa estar na lobby como titular para dar start!",
-      );
-      return;
-    }
-
-    // Super admin pode dar start em qualquer lobby aberta
-    if (isSuperAdmin && !partidaComoTitular) {
-      const abertas = await partidaService.getPartidasAbertas(groupId);
-      if (abertas.length === 0) {
-        await msg.reply("⚠️ Nenhuma lobby aberta no momento.");
-        return;
-      }
-      partida = abertas[0];
-    } else {
-      partida = partidaComoTitular;
-    }
+    return;
   }
 
   const titulares = await jogadorService.getTitulares(partida.id);
@@ -85,8 +60,23 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
     return;
   }
 
-  // 3. Busca a partida em que o cara é o criador (admin)
-  const partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
+  // 3. Busca a partida — criador ou super admin
+  let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
+
+  if (!partida && senderId === SUPER_ADMIN_ID) {
+    const abertas = await partidaService.getPartidasAbertas(groupId);
+    if (abertas.length === 1) {
+      partida = abertas[0];
+    } else if (abertas.length > 1) {
+      let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja alterar?\n\n`;
+      abertas.forEach((p) => {
+        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+      });
+      await msg.reply(texto);
+      return;
+    }
+  }
+
   if (!partida) {
     await msg.reply(
       "⚠️ Você não é o dono de nenhuma partida aberta no momento para mudar o horário.",
@@ -128,8 +118,31 @@ async function titulo({ msg, chat, parametro, senderId, groupId }) {
 }
 
 // Helper: busca partida do admin ou responde com erro
+// Super admin pode operar em qualquer partida aberta do grupo
 async function getPartidaOuErro(msg, groupId, senderId) {
-  const partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
+  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
+
+  let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
+
+  if (!partida && isSuperAdmin) {
+    const abertas = await partidaService.getPartidasAbertas(groupId);
+    if (abertas.length === 0) {
+      await msg.reply("⚠️ Nenhuma lobby aberta no momento.");
+      return null;
+    }
+    if (abertas.length === 1) {
+      partida = abertas[0];
+    } else {
+      // Mais de uma aberta — super admin precisa especificar
+      let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja operar?\n\n`;
+      abertas.forEach((p) => {
+        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+      });
+      await msg.reply(texto);
+      return null;
+    }
+  }
+
   if (!partida) {
     await msg.reply(
       "Tá achando que é admin? Você não criou nenhuma partida aberta!",
