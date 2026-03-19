@@ -20,18 +20,7 @@ function bloquearJogador(senderId) {
 
 // ─── COMANDO: !eu (ENTRAR) ────────────────────────────────────────────────────
 async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
-  if (!bloquearJogador(senderId)) return; // silencioso — é spam acidental
-  // Regra da monogamia: jogador não pode estar em duas partidas
-  const jaEstaEmLobby = await partidaService.getPartidaDoJogador(
-    groupId,
-    senderId,
-  );
-  if (jaEstaEmLobby) {
-    await msg.reply(
-      `🚨 Emocionado! Você já está na *Lobby #${jaEstaEmLobby.numero_lobby}: ${jaEstaEmLobby.titulo}*. Mande *!sair* dela primeiro.`,
-    );
-    return;
-  }
+  if (!bloquearJogador(senderId)) return; 
 
   const partidaAlvo = await resolverPartidaAlvo({
     msg,
@@ -42,6 +31,23 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   });
   if (!partidaAlvo) return;
 
+  // NOVA REGRA: Validação de conflito de horário (Janela de 1h30)
+  const conflito = await partidaService.verificarConflitoDeHorario(
+    groupId,
+    senderId,
+    partidaAlvo.horario
+  );
+
+  if (conflito) {
+    const infoHorario = conflito.horario ? ` às *${conflito.horario}*` : " (sem horário)";
+    await msg.reply(
+      `🚨 Conflito de agenda, emocionado!\n` +
+      `Você já é titular na *Lobby #${conflito.numero_lobby}: ${conflito.titulo}*${infoHorario}.\n\n` +
+      `As partidas precisam ter pelo menos *1h30* de diferença.`
+    );
+    return;
+  }
+
   const numTitulares = await partidaService.contarTitulares(partidaAlvo.id);
   const maxPlayers = partidaAlvo.max_players;
   const linkDiscord = await grupoService.obterDiscord(groupId);
@@ -50,13 +56,10 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
     await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "TITULAR");
     const vagasRestantes = maxPlayers - (numTitulares + 1);
 
-    // O cabeçalho (Título/Horário) já vem dentro do gerarListaTexto
     let textoFinal = await gerarListaTexto(partidaAlvo.id, maxPlayers);
 
     if (vagasRestantes === 0) {
-      textoFinal += linkDiscord
-        ? `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`
-        : `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
+      textoFinal += `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
 
       if (partidaAlvo.horario) {
         textoFinal += `\n⏰ Te espero no server às *${partidaAlvo.horario}*!`;
@@ -71,6 +74,7 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
     await chat.sendMessage(textoFinal);
   } else {
+    // Se a sala estiver cheia, entra como suplente (aqui não precisa barrar por horário)
     await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "SUPLENTE");
     const suplentes = await jogadorService.getSuplentes(partidaAlvo.id);
 

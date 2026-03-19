@@ -139,7 +139,6 @@ async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
 
 async function getTodasPartidasComHorario() {
   const db = getDb();
-  // Busca apenas partidas abertas com horário definido e alarme ainda não disparado
   return db.all(
     "SELECT * FROM partidas WHERE status = 'ABERTA' AND horario IS NOT NULL AND horario != '' AND alarme_disparado = 0",
   );
@@ -157,6 +156,44 @@ async function limparPartidasEsquecidas() {
   await db.run(
     "UPDATE partidas SET status = 'CANCELADA' WHERE status = 'ABERTA'",
   );
+}
+
+async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr) {
+  const db = getDb();
+  
+  const partidasAtivas = await db.all(
+    `SELECT p.horario, p.numero_lobby, p.titulo 
+     FROM partidas p
+     JOIN jogadores_partida jp ON p.id = jp.partida_id
+     WHERE p.group_id = ? AND jp.jogador_id = ? AND jp.papel = 'TITULAR' AND p.status = 'ABERTA'`,
+    [groupId, senderId]
+  );
+
+  if (partidasAtivas.length === 0) return null;
+
+  if (!novoHorarioStr) return partidasAtivas[0];
+
+  const horaParaMin = (hhmm) => {
+    const [h, m] = hhmm.split(":").map(Number);
+    return h * 60 + m;
+  };
+
+  const minNovo = horaParaMin(novoHorarioStr);
+
+  for (const p of partidasAtivas) {
+    if (!p.horario) return p;
+
+    const minExistente = horaParaMin(p.horario);
+    let diferenca = Math.abs(minNovo - minExistente);
+    
+    if (diferenca > 720) diferenca = 1440 - diferenca;
+
+    if (diferenca < 90) { 
+      return p;
+    }
+  }
+
+  return null;
 }
 
 module.exports = {
@@ -177,4 +214,5 @@ module.exports = {
   getTodasPartidasComHorario,
   marcarAlarmeDisparado,
   limparPartidasEsquecidas,
+  verificarConflitoDeHorario,
 };
