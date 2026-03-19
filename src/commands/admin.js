@@ -6,6 +6,8 @@ const { mencionarJogadores } = require("../utils/mentions");
 const { parseHorario } = require("../utils/timeParser");
 const grupoService = require("../services/grupoService");
 
+const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
+
 async function start({ msg, chat, senderId, groupId }) {
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
 
