@@ -13,20 +13,7 @@ async function criarLobby({
   senderId,
   groupId,
 }) {
-  // Regra da monogamia: jogador não pode estar em duas partidas
-  const jaEstaEmLobby = await partidaService.getPartidaDoJogador(
-    groupId,
-    senderId,
-  );
-  if (jaEstaEmLobby) {
-    await msg.reply(
-      `🚨 Emocionado! Você já está na *Lobby #${jaEstaEmLobby.numero_lobby}: ${jaEstaEmLobby.titulo}*. Mande *!sair* dela primeiro se quiser entrar ou criar outra.`,
-    );
-    return;
-  }
-
-  // Parse dos parâmetros (horário e título)
-  // Aceita horário no início (!lobby 12h Título) ou no fim (!lobby Título 12h)
+  // --- PARSE DE PARÂMETROS ---
   const isMix = comando === "!mix";
   let horario = "";
   let titulo = isMix ? "MIX 5X5" : "LOBBY";
@@ -43,37 +30,44 @@ async function criarLobby({
         : null;
 
     if (horarioInicio) {
-      // !lobby 12h Título
       horario = horarioInicio;
       const resto = parametro.substring(primeiraPalavra.length).trim();
       if (resto) titulo = resto.toUpperCase();
     } else if (horarioFim) {
-      // !lobby Título 12h
       horario = horarioFim;
       const resto = palavras.slice(0, -1).join(" ").trim();
       if (resto) titulo = resto.toUpperCase();
     } else {
-      // Sem horário — tudo é título
       titulo = parametro.toUpperCase();
     }
   }
 
-  // ─── Trava unificada: analisa cada sala aberta e decide o que fazer ─────────
-  // Regras:
-  // - Sala CHEIA → ignora, pode criar nova
-  // - Sala INCOMPLETA + horário passou → cancela por inatividade, pode criar nova
-  // - Sala INCOMPLETA sem horário → bloqueia, pede para atribuir horário
-  // - Sala INCOMPLETA com horário + nova sala com horário com < 1h30 de diferença → bloqueia
-  // - Sala INCOMPLETA com horário + diferença >= 1h30 → libera
-  const DIFERENCA_MINIMA_MIN = 90; // 1h30 em minutos
+  // ─── NOVA TRAVA DE MONOGAMIA INTELIGENTE ───────────────────────────────────
+  // Em vez de barrar direto, verifica se o horário conflita (janela de 1h30)
+  const conflito = await partidaService.verificarConflitoDeHorario(
+    groupId,
+    senderId,
+    horario
+  );
 
+  if (conflito) {
+    const infoH = conflito.horario ? ` às *${conflito.horario}*` : " (sem horário)";
+    await msg.reply(
+      `🚨 Emocionado! Você já é titular na *Lobby #${conflito.numero_lobby}: ${conflito.titulo}*${infoH}.\n\n` +
+      `Para criar outra, as partidas precisam ter pelo menos *1h30* de diferença.`
+    );
+    return;
+  }
+  // ───────────────────────────────────────────────────────────────────────────
+
+  // ─── Trava unificada: analisa cada sala aberta e decide o que fazer ─────────
+  const DIFERENCA_MINIMA_MIN = 90; // 1h30 em minutos
   const agora = new Date();
   const horaAtualStr =
     agora.getHours().toString().padStart(2, "0") +
     ":" +
     agora.getMinutes().toString().padStart(2, "0");
 
-  // Converte "HH:mm" para minutos totais para facilitar comparação
   function horaParaMinutos(hhmm) {
     if (!hhmm) return null;
     const [h, m] = hhmm.split(":").map(Number);
@@ -88,20 +82,15 @@ async function criarLobby({
     const estaCheia = numTitulares >= lobby.max_players;
     const horarioPassou = lobby.horario ? horaAtualStr > lobby.horario : false;
 
-    if (estaCheia) {
-      // Sala cheia — ignora e deixa criar a próxima
-      continue;
-    }
+    if (estaCheia) continue;
 
     if (horarioPassou) {
-      // Sala incompleta e horário já passou — cancela por inatividade
       await partidaService.cancelarPartida(lobby.id);
       textoAviso = `♻️ *O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) foi cancelado por inatividade.*\n\n`;
       continue;
     }
 
     if (!lobby.horario) {
-      // Sala incompleta sem horário — bloqueia e pede para atribuir horário
       await msg.reply(
         `⚠️ O ${lobby.tipo} #${lobby.numero_lobby} ainda tem vagas e não tem horário definido.\n\n` +
           `Para criar outra sala, preencha as vagas ou atribua um horário:\n` +
@@ -111,7 +100,6 @@ async function criarLobby({
       return;
     }
 
-    // Sala incompleta com horário — verifica diferença mínima de 1h30
     if (horario) {
       const minLobbyExistente = horaParaMinutos(lobby.horario);
       const minNovaLobby = horaParaMinutos(horario);
@@ -126,9 +114,7 @@ async function criarLobby({
         );
         return;
       }
-      // Diferença suficiente — deixa criar
     } else {
-      // Nova sala sem horário e já tem sala com horário incompleta — bloqueia
       await msg.reply(
         `Calma lá! O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) ainda tem vagas para o time titular.\n` +
           `Mande *!eu ${lobby.numero_lobby}* para entrar nela antes de tentar criar outra.`,
@@ -136,8 +122,8 @@ async function criarLobby({
       return;
     }
   }
-  // ───────────────────────────────────────────────────────────────────────────
 
+  // --- CRIAÇÃO DA PARTIDA ---
   const maxPlayers = isMix ? 10 : 5;
   const tipo = isMix ? "MIX" : "LOBBY";
   const numeroLobby = await partidaService.gerarNumeroLobbyDisponivel(groupId);
@@ -156,12 +142,11 @@ async function criarLobby({
   await jogadorService.adicionarJogador(partidaId, senderId, "TITULAR");
 
   let texto = textoAviso;
-  texto += await gerarListaTexto(partidaId, maxPlayers); // O cabeçalho já vem incluso!
+  texto += await gerarListaTexto(partidaId, maxPlayers);
   texto += `\nMande *!eu ${numeroLobby}* para entrar!`;
 
   await marcarTodos(chat, texto);
 
-  // Avisa suplentes de outras lobbies sobre a nova vaga
   const suplentesOutras = await partidaService.getSuplentesDeOutrasPartidas(
     groupId,
     partidaId,
