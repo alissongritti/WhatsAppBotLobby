@@ -27,13 +27,14 @@ O projeto foi construído com foco em estabilidade e performance para grupos de 
 
 ---
 
-## 🕹️ Sistema de Lobbies
+## 🕹️ Sistema de Lobbies e Partidas
 
 O coração do bot é o gerenciamento de filas. O sistema entende quem é titular e quem é suplente automaticamente.
 
 - **`!eu`** — Entra no lobby ativo. Se o time de 5 estiver cheio, você vai automaticamente para a fila de suplentes.
 - **`!sair`** — Remove você da partida. Se você era titular e havia um reserva, o bot faz o promote automático do reserva para a vaga.
-- **`!kick [pos] ou !kick @player`** — Comando de moderador para remover um jogador da lista.
+- **`!start`** — Comando de moderador para fechar o lobby e marcar o início da gameplay. **Ao iniciar, o bot registra automaticamente +1 partida para todos os titulares nas estatísticas.**
+- **`!kick [pos] ou !kick @player`** — Comando de moderador para remover um jogador da lista por posição ou menção direta.
 
 > A identidade visual das listas é centralizada via `listFormatter.js`, garantindo que o status da partida esteja sempre legível e organizado.
 
@@ -49,6 +50,9 @@ A solução implementa um **debounce via `Set` (`jogadoresEmOperacao`)**:
 - Garante que a escrita no SQLite seja atômica e sequencial.
 - Evita duplicidade de jogadores no banco de dados.
 
+### 🔔 Notificações Seletivas
+Os jogadores podem controlar se desejam ser mencionados em novas chamadas de lobby através dos comandos `!silenciar` e `!notificar`. Isso reduz o spam para quem não pode jogar no momento.
+
 ### 🔐 Filtro de Autorização de Grupos
 O bot não responde em qualquer lugar. Uma camada de middleware valida `isGrupoAutorizado` antes de processar qualquer lógica de negócio, impedindo uso não autorizado e economizando recursos de processamento.
 
@@ -61,23 +65,26 @@ O bot monitora o feed RSS oficial da Valve a cada 30 minutos. Quando uma atualiz
 
 | Comando | Descrição |
 | :--- | :--- |
-| `!lobby [horario] [titulo]` | Cria uma fila para 5 jogadores. |
-| `!mix [horario] [titulo]` | Cria um 5x5 para 10 jogadores. |
+| `!lobby [hora] [titulo]` | Cria uma fila para 5 jogadores. |
+| `!mix [hora] [titulo]` | Cria um 5x5 para 10 jogadores. |
 | `!eu` | Entra no lobby atual (Titular ou Reserva). |
 | `!sair` | Sai da partida e libera a vaga. |
 | `!status` | Exibe o status atual do lobby. |
-| `!start` | Fecha o lobby e marca o início da gameplay. |
+| `!start` | Fecha o lobby, inicia o jogo e contabiliza estatísticas. |
 | `!cancelar` | Cancela o lobby e reseta a fila. |
 | `!kick [pos] ou !kick @player` | Remove um jogador da lista. |
 | `!horario [hora]` | Atualiza o horário da partida. |
 | `!titulo [nome]` | Atualiza o título da partida. |
 | `!nick [nome]` | Define seu apelido na lista. |
+| `!silenciar` | Desativa menções automáticas para você. |
+| `!notificar` | Reativa menções automáticas para você. |
 | `!jogos` | Lista os jogos de CS2 do dia. |
 | `!jogosbr` | Lista os jogos de times brasileiros do dia. |
 | `!resultados` | Resultados dos jogos do dia. |
 | `!resultadosbr` | Resultados dos times brasileiros do dia. |
 | `!novidades` | Última atualização oficial do CS2 resumida por IA. |
-| `!discord` | Exibe o link do Discord do grupo. |
+| `!setdiscord [link]` | (Admin) Define o link do Discord do grupo. |
+| `!discord` | Exibe o link do Discord configurado. |
 | `!comandos` | Lista todos os comandos disponíveis. |
 
 ---
@@ -119,13 +126,14 @@ Built for stability and performance in high-traffic group chats:
 
 ---
 
-## 🕹️ Lobby System
+## 🕹️ Lobby & Match System
 
 The core of the bot is its queue management engine. It automatically distinguishes starters from substitutes.
 
 - **`!eu`** — Joins the active lobby. If the 5-player slot is full, you're automatically queued as a substitute.
 - **`!sair`** — Leaves the match and frees your slot. If you were a starter, the first substitute is automatically promoted.
-- **`!kick [pos] or !kick @player`** — Moderator command to remove a player by position or mention.
+- **`!start`** — Moderator command to close the lobby. **Automatically registers +1 match played for all starters in the stats system.**
+- **`!kick [pos] or !kick @player`** — Moderator command to remove a player by position number or direct mention.
 
 > All list formatting is centralized in `listFormatter.js`, ensuring consistent and readable lobby status across all interactions.
 
@@ -140,6 +148,9 @@ The solution implements a **debounce mechanism via a JavaScript `Set` (`jogadore
 - Blocks concurrent operations from the same user ID for 3 seconds.
 - Ensures SQLite writes are atomic and sequential.
 - Prevents duplicate player entries in the database.
+
+### 🔔 Selective Notifications
+Players can opt out of group mentions when a new lobby is created using `!silenciar`, and opt back in with `!notificar` — reducing noise for those who aren't available to play.
 
 ### 🔐 Group Authorization Middleware
 The bot doesn't respond just anywhere. A middleware layer validates `isGrupoAutorizado` before processing any business logic — preventing unauthorized usage and saving unnecessary compute.
@@ -158,18 +169,21 @@ The bot polls the official Valve RSS feed every 30 minutes. When an update is de
 | `!eu` | Joins the lobby (starter or substitute). |
 | `!sair` | Leaves the match and frees the slot. |
 | `!status` | Shows current lobby status. |
-| `!start` | Closes the lobby and marks game start. |
+| `!start` | Closes lobby and records match stats. |
 | `!cancelar` | Cancels the lobby and resets the queue. |
 | `!kick [pos] or !kick @player` | Removes a player from the list. |
 | `!horario [time]` | Updates the match time. |
 | `!titulo [name]` | Updates the match title. |
 | `!nick [name]` | Sets your display name in the list. |
-| `!jogos` | Lists today's CS2 professional matches. |
-| `!jogosbr` | Lists today's Brazilian team matches. |
+| `!silenciar` | Disables automatic mentions for you. |
+| `!notificar` | Re-enables automatic mentions for you. |
+| `!jogos` | Today's CS2 professional matches. |
+| `!jogosbr` | Today's Brazilian team matches. |
 | `!resultados` | Today's match results. |
 | `!resultadosbr` | Today's Brazilian team results. |
 | `!novidades` | Latest CS2 update summarized by AI. |
-| `!discord` | Displays the group's Discord link. |
+| `!setdiscord [link]` | (Admin) Set group's Discord link. |
+| `!discord` | Show group's Discord link. |
 | `!comandos` | Lists all available commands. |
 
 ---
@@ -184,4 +198,4 @@ The bot polls the official Valve RSS feed every 30 minutes. When an update is de
 
 ---
 
-*Built for people who are tired of wasting 10 minutes organizing a lobby before every match.* 🔫
+*Built for people who are tired of wasting 10 minutes organizing a lobby before every match. If you're going to troll, don't join.* 🔫
