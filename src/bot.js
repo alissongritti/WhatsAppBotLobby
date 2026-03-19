@@ -85,6 +85,9 @@ function initBot() {
         if (ADMIN_WA_ID && !gruposJaNotificados.has(groupId)) {
           gruposJaNotificados.add(groupId);
           try {
+            console.log(
+              `🚨 Grupo não autorizado tentou usar o bot: ${chat.name} | ${groupId}`,
+            );
             await client.sendMessage(
               ADMIN_WA_ID,
               `🚨 *Tentativa de uso não autorizado!*\n\n` +
