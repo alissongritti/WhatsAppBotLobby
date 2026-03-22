@@ -9,27 +9,25 @@ const grupoService = require("../services/grupoService");
 const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
 
 async function start({ msg, chat, senderId, groupId }) {
+  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
+
+  // Busca partida onde o sender é criador OU titular
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
+  if (!partida) partida = await partidaService.getPartidaDoTitular(groupId, senderId);
 
-  if (!partida) {
-    const isSuperAdmin = senderId === SUPER_ADMIN_ID;
-    const partidaComoTitular = await partidaService.getPartidaDoTitular(groupId, senderId);
-
-    if (!partidaComoTitular && !isSuperAdmin) {
-      await msg.reply("⚠️ Você precisa estar na lobby como titular para dar start!");
+  // Super admin pode dar start em qualquer lobby aberta
+  if (!partida && isSuperAdmin) {
+    const abertas = await partidaService.getPartidasAbertas(groupId);
+    if (abertas.length === 0) {
+      await msg.reply("⚠️ Nenhuma lobby aberta no momento.");
       return;
     }
+    partida = abertas[0];
+  }
 
-    if (isSuperAdmin && !partidaComoTitular) {
-      const abertas = await partidaService.getPartidasAbertas(groupId);
-      if (abertas.length === 0) {
-        await msg.reply("⚠️ Nenhuma lobby aberta no momento.");
-        return;
-      }
-      partida = abertas[0];
-    } else {
-      partida = partidaComoTitular;
-    }
+  if (!partida) {
+    await msg.reply("⚠️ Você precisa estar na lobby como titular para dar start!");
+    return;
   }
 
   const titulares = await jogadorService.getTitulares(partida.id);
@@ -47,13 +45,29 @@ async function start({ msg, chat, senderId, groupId }) {
   await chat.sendMessage(texto);
 }
 
-async function cancelar({ msg, chat, senderId, groupId }) {
-  const partida = await getPartidaOuErro(msg, groupId, senderId);
-  if (!partida) return;
+async function cancelar({ msg, chat, parametro, senderId, groupId }) {
+  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
+  let partida = null;
+
+  if (parametro) {
+    const numeroLobby = parseInt(parametro);
+    if (isNaN(numeroLobby))
+      return msg.reply("⚠️ Formato inválido. Use *!cancelar* ou *!cancelar [número]*. Ex: *!cancelar 2*");
+
+    partida = await partidaService.getPartidaPorLobby(groupId, numeroLobby);
+    if (!partida)
+      return msg.reply(`⚠️ Não encontrei a lobby #${numeroLobby} ou ela já foi encerrada.`);
+
+    if (partida.criador_id !== senderId && !isSuperAdmin)
+      return msg.reply("⛔ Só o dono da lobby ou o super admin pode cancelar esta partida.");
+  } else {
+    partida = await getPartidaOuErro(msg, groupId, senderId);
+    if (!partida) return;
+  }
 
   await partidaService.cancelarPartida(partida.id);
   await chat.sendMessage(
-    `🛑 *Partida #${partida.numero_lobby} cancelada pelo criador.* A fila foi resetada!`,
+    `🛑 *Partida #${partida.numero_lobby} cancelada.* A fila foi resetada!`,
   );
 }
 
