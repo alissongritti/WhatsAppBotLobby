@@ -52,6 +52,8 @@ const COMMAND_MAP = {
   "!novidades": hltvCmd.listarNovidades,
 
   "!atualizarjogos": hltvCmd.atualizarJogosAdmin,
+
+  "!resumo": miscCmd.resumo,
 };
 
 async function router(context) {

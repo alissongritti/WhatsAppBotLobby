@@ -1,8 +1,39 @@
 const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
+const resumoService = require("../services/resumoService"); // Adicionado o novo serviço
 const { gerarListaTexto } = require("../utils/listFormatter");
 
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
+
+// --- COMANDO: !resumo ---
+async function resumo({ msg, chat }) {
+  try {
+    // UX: Aviso de que o processo começou (IA pode demorar alguns segundos)
+    await msg.reply(
+      "🤖 Peraí, estou lendo as fofocas e as arregadas do dia para te contar...",
+    );
+
+    // Busca as últimas 150 mensagens do chat atual
+    const mensagens = await chat.fetchMessages({ limit: 150 });
+
+    if (!mensagens || mensagens.length < 5) {
+      return msg.reply(
+        "Ainda não teve conversa suficiente para eu fofocar algo relevante!",
+      );
+    }
+
+    // Chama o serviço que você criou para processar com o Gemini
+    const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
+
+    // Envia o resultado final
+    await chat.sendMessage(`📝 *RESUMO DOS ALIADOS* 📝\n\n${textoResumo}`);
+  } catch (error) {
+    console.error("Erro no comando !resumo:", error);
+    await msg.reply(
+      "❌ Meus circuitos fritaram tentando resumir tanta abobrinha! Tente novamente mais tarde.",
+    );
+  }
+}
 
 async function meunick({ msg, parametro, senderId }) {
   if (!parametro) {
@@ -84,6 +115,7 @@ async function comandos({ chat }) {
     "*!sair* - Sai da lista.",
     "*!status* - Mostra as listas atuais.",
     "*!nick [nome]* - Muda seu nome.",
+    "*!resumo* - Resumo do que aconteceu no grupo hoje.", // Comando adicionado à lista
     "*!silenciar* - Não receberá notificação.",
     "*!notificar* - Reativa a notificação.",
     "*!discord* - Consulta o discord do grupo.",
@@ -119,4 +151,5 @@ async function notificar({ msg, senderId }) {
   );
 }
 
-module.exports = { meunick, status, comandos, silenciar, notificar };
+// Exportando a nova função resumo
+module.exports = { meunick, status, comandos, silenciar, notificar, resumo };
