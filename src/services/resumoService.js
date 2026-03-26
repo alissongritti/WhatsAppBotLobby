@@ -3,7 +3,7 @@ const partidaService = require("./partidaService");
 
 async function gerarResumoGrupo(chat, mensagensRecentes) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
   const conversaLimpa = (mensagensRecentes || [])
     .filter((m) => m?.body && !m.body.startsWith("!"))
