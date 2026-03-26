@@ -4,28 +4,30 @@ const partidaService = require("./partidaService");
 async function gerarResumoGrupo(chat, mensagensRecentes) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  // Lista de modelos por prioridade
-  const modelos = ["gemini-2.5-flash", "gemini-1.5-flash"];
-
+  // 1. FILTRO CRÍTICO: Ignora mensagens enviadas pelo próprio bot (fromMe)
+  // e foca apenas no que os membros escreveram.
   const conversaLimpa = (mensagensRecentes || [])
-    .filter((m) => m?.body && !m.body.startsWith("!"))
+    .filter((m) => m?.body && !m.body.startsWith("!") && m.fromMe === false) // <--- ADICIONADO: m.fromMe === false
     .map((m) => `${m.author?.split("@")[0] || "Sistema"}: ${m.body}`)
     .join("\n");
 
-  if (!conversaLimpa)
-    return "😴 Silêncio total no grupo hoje. Ninguém abriu o bico.";
+  if (!conversaLimpa) return "😴 Silêncio total. Ninguém falou nada útil.";
 
+  // 2. PROMPT COM "BLINDAGEM" DE CONTEXTO
   const prompt = `
-    Você é um dos membros do grupo Aliados Gaming. Resuma a resenha de forma sarcástica.
-    REGRAS: 
-    - Sem introduções ("Olá", "Aqui está"). Vá direto ao ponto.
-    - Use um asterisco para negrito (*texto*). 
-    - Sem referências a robô/IA. Fale como um jogador.
-    - No máximo 3 parágrafos ou tópicos curtos.
-    - Use: emocionado, arregão, leigo, segurando o shift.
-    - ZERO PALAVRÃO.
+    Você é um membro sarcástico do grupo Aliados Gaming.
+    Resuma EXCLUSIVAMENTE o comportamento e as falas dos membros abaixo.
 
-    CONVERSAS: ${conversaLimpa}
+    REGRAS DE OURO (NÃO QUEBRE):
+    1. PROIBIDO: Não use seu conhecimento sobre patches, atualizações ou notícias do CS2. 
+    2. Se não estiver escrito nas "CONVERSAS" abaixo, NÃO invente e NÃO mencione.
+    3. FOCO: Zoeiras entre membros, tentativas de lobby, o cara do marketing, etc.
+    4. ESTILO: Máximo 3 parágrafos curtos. Sem "Olá" ou introduções.
+    5. FORMATAÇÃO: Use apenas um asterisco para negrito (*texto*).
+    6. LINGUAGEM: Use 'emocionado', 'arregão', 'leigo'. Sem palavrões.
+
+    CONVERSAS PARA ANALISAR (IGNORE TUDO QUE ESTIVER FORA DISSO):
+    ${conversaLimpa}
   `;
 
   // Função interna para tentar gerar com um modelo específico
