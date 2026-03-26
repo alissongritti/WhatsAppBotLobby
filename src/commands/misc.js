@@ -6,33 +6,46 @@ const { gerarListaTexto } = require("../utils/listFormatter");
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
 
 async function resumo({ msg, chat }) {
-  console.log("--- DEBUG: Iniciando comando !resumo ---");
+  console.log("🚀 !resumo iniciado");
+
   try {
-    // 1. Feedback pro usuário
-    await msg.reply("🤖 Peraí, estou lendo as fofocas do dia...");
-    console.log("--- DEBUG: Reply enviado, buscando mensagens... ---");
-
-    // 2. Busca mensagens (Diminuí o limite para 50 para testar se é o fetch que trava)
-    const mensagens = await chat.fetchMessages({ limit: 50 });
-    console.log(`--- DEBUG: Mensagens recuperadas: ${mensagens.length} ---`);
-
-    if (!mensagens || mensagens.length < 5) {
-      console.log("--- DEBUG: Poucas mensagens encontradas ---");
-      return msg.reply("Ainda não teve conversa suficiente para eu fofocar!");
+    if (!msg || !chat) {
+      console.log("❌ msg ou chat undefined");
+      return;
     }
 
-    // 3. Chama o serviço
-    console.log("--- DEBUG: Chamando resumoService.gerarResumoGrupo ---");
-    const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
-    console.log("--- DEBUG: Resumo gerado com sucesso pela IA ---");
+    await msg.reply("🤖 Peraí, tô lendo as fofocas...");
 
-    // 4. Envia
+    console.log("📦 Buscando mensagens...");
+
+    let mensagens = [];
+
+    try {
+      console.log("chat.fetchMessages existe?", typeof chat.fetchMessages);
+
+      mensagens = await chat.fetchMessages({ limit: 50 });
+
+      console.log("✅ Mensagens recuperadas:", mensagens.length);
+    } catch (err) {
+      console.error("❌ Erro ao buscar mensagens:", err.message);
+    }
+
+    // fallback
+    if (!mensagens || mensagens.length < 5) {
+      console.log("⚠️ Poucas mensagens, usando fallback");
+      mensagens = [msg];
+    }
+
+    console.log("🧠 Chamando IA...");
+
+    const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
+
+    console.log("✅ Resumo gerado");
+
     await chat.sendMessage(`📝 *RESUMO DOS ALIADOS* 📝\n\n${textoResumo}`);
-    console.log("--- DEBUG: Mensagem enviada para o chat ---");
   } catch (error) {
-    console.error("--- ERRO CRÍTICO NO !RESUMO ---");
-    console.error(error); // Isso TEM que aparecer no console agora
-    await msg.reply("❌ Deu erro! Olha o console do servidor, Alisson.");
+    console.error("💥 ERRO NO !RESUMO:", error);
+    await msg.reply("❌ Deu erro ao gerar resumo.");
   }
 }
 
