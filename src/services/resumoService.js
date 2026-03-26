@@ -60,7 +60,7 @@ ${contextoLobbies}
     const result = await Promise.race([
       model.generateContent(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout Gemini")), 10000),
+        setTimeout(() => reject(new Error("Timeout Gemini")), 30000),
       ),
     ]);
 
