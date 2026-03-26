@@ -5,33 +5,34 @@ const { gerarListaTexto } = require("../utils/listFormatter");
 
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
 
-// --- COMANDO: !resumo ---
 async function resumo({ msg, chat }) {
+  console.log("--- DEBUG: Iniciando comando !resumo ---");
   try {
-    // UX: Aviso de que o processo começou (IA pode demorar alguns segundos)
-    await msg.reply(
-      "🤖 Peraí, estou lendo as fofocas e as arregadas do dia para te contar...",
-    );
+    // 1. Feedback pro usuário
+    await msg.reply("🤖 Peraí, estou lendo as fofocas do dia...");
+    console.log("--- DEBUG: Reply enviado, buscando mensagens... ---");
 
-    // Busca as últimas 150 mensagens do chat atual
-    const mensagens = await chat.fetchMessages({ limit: 150 });
+    // 2. Busca mensagens (Diminuí o limite para 50 para testar se é o fetch que trava)
+    const mensagens = await chat.fetchMessages({ limit: 50 });
+    console.log(`--- DEBUG: Mensagens recuperadas: ${mensagens.length} ---`);
 
     if (!mensagens || mensagens.length < 5) {
-      return msg.reply(
-        "Ainda não teve conversa suficiente para eu fofocar algo relevante!",
-      );
+      console.log("--- DEBUG: Poucas mensagens encontradas ---");
+      return msg.reply("Ainda não teve conversa suficiente para eu fofocar!");
     }
 
-    // Chama o serviço que você criou para processar com o Gemini
+    // 3. Chama o serviço
+    console.log("--- DEBUG: Chamando resumoService.gerarResumoGrupo ---");
     const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
+    console.log("--- DEBUG: Resumo gerado com sucesso pela IA ---");
 
-    // Envia o resultado final
+    // 4. Envia
     await chat.sendMessage(`📝 *RESUMO DOS ALIADOS* 📝\n\n${textoResumo}`);
+    console.log("--- DEBUG: Mensagem enviada para o chat ---");
   } catch (error) {
-    console.error("Erro no comando !resumo:", error);
-    await msg.reply(
-      "❌ Meus circuitos fritaram tentando resumir tanta abobrinha! Tente novamente mais tarde.",
-    );
+    console.error("--- ERRO CRÍTICO NO !RESUMO ---");
+    console.error(error); // Isso TEM que aparecer no console agora
+    await msg.reply("❌ Deu erro! Olha o console do servidor, Alisson.");
   }
 }
 
