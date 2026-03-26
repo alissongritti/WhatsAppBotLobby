@@ -32,24 +32,20 @@ const COMMAND_MAP = {
 
 async function router(context) {
   try {
-    console.log("📥 Context recebido:", context);
-
     const comando = context?.comando?.trim().toLowerCase();
+    if (!comando) return;
 
-    console.log("👉 Comando tratado:", comando);
+    // Log limpo: [Hora] Comando: !exemplo | De: nick
+    console.log(
+      `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome}`,
+    );
 
     const handler = COMMAND_MAP[comando];
-
-    if (!handler) {
-      console.log("❌ Comando não encontrado:", comando);
-      return;
+    if (handler) {
+      await handler(context);
     }
-
-    console.log("✅ Executando handler de:", comando);
-
-    await handler(context);
   } catch (err) {
-    console.error("💥 ERRO NO ROUTER:", err);
+    console.error("💥 ERRO NO ROUTER:", err.message);
   }
 }
 

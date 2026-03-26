@@ -6,46 +6,19 @@ const { gerarListaTexto } = require("../utils/listFormatter");
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
 
 async function resumo({ msg, chat }) {
-  console.log("🚀 !resumo iniciado");
-
   try {
-    if (!msg || !chat) {
-      console.log("❌ msg ou chat undefined");
-      return;
-    }
-
     await msg.reply("🤖 Peraí, tô lendo as fofocas...");
 
-    console.log("📦 Buscando mensagens...");
+    // Busca silenciosa
+    const mensagens = await chat.fetchMessages({ limit: 50 });
 
-    let mensagens = [];
-
-    try {
-      console.log("chat.fetchMessages existe?", typeof chat.fetchMessages);
-
-      mensagens = await chat.fetchMessages({ limit: 50 });
-
-      console.log("✅ Mensagens recuperadas:", mensagens.length);
-    } catch (err) {
-      console.error("❌ Erro ao buscar mensagens:", err.message);
-    }
-
-    // fallback
-    if (!mensagens || mensagens.length < 5) {
-      console.log("⚠️ Poucas mensagens, usando fallback");
-      mensagens = [msg];
-    }
-
-    console.log("🧠 Chamando IA...");
-
+    // Chama a IA (ela já tem o próprio log de erro se der ruim)
     const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
-
-    console.log("✅ Resumo gerado");
 
     await chat.sendMessage(`📝 *RESUMO DOS ALIADOS* 📝\n\n${textoResumo}`);
   } catch (error) {
-    console.error("💥 ERRO NO !RESUMO:", error);
-    await msg.reply("❌ Deu erro ao gerar resumo.");
+    console.error("💥 ERRO !resumo:", error.message);
+    await msg.reply("❌ Erro ao gerar resumo.");
   }
 }
 
