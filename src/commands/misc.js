@@ -5,20 +5,42 @@ const { gerarListaTexto } = require("../utils/listFormatter");
 
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
 
-async function resumo({ msg, chat }) {
+const resumosPorGrupo = new Map();
+const COOLDOWN_RESUMO = 60 * 60 * 1000; // 1 hora em milissegundos
+
+async function resumo({ msg, chat, groupId }) {
+  const agora = Date.now();
+  const ultimoResumo = resumosPorGrupo.get(groupId) || 0;
+  const tempoPassado = agora - ultimoResumo;
+
+  // Verifica se está no período de cooldown
+  if (tempoPassado < COOLDOWN_RESUMO) {
+    const minutosRestantes = Math.ceil(
+      (COOLDOWN_RESUMO - tempoPassado) / (60 * 1000),
+    );
+    return msg.reply(
+      `⏳ Calma aí, fofoqueiro! O resumo tem um tempo de espera para não poluir o grupo. Tente novamente em ${minutosRestantes} minutos.`,
+    );
+  }
+
   try {
-    await msg.reply("🤖 Peraí, tô lendo as fofocas...");
+    await msg.reply("🤖 Peraí, vou ler a resenha e te conto o essencial...");
 
-    // Busca silenciosa
-    const mensagens = await chat.fetchMessages({ limit: 50 });
+    const mensagens = await chat.fetchMessages({ limit: 80 }); // Reduzi para 80 para ser mais rápido
 
-    // Chama a IA (ela já tem o próprio log de erro se der ruim)
+    if (!mensagens || mensagens.length < 5) {
+      return msg.reply("Pouca conversa para um resumo.");
+    }
+
     const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
 
-    await chat.sendMessage(`📝 *RESUMO DOS ALIADOS* 📝\n\n${textoResumo}`);
+    // Atualiza o tempo do último resumo com sucesso
+    resumosPorGrupo.set(groupId, Date.now());
+
+    await chat.sendMessage(`📝 *RESUMO EXPRESSO* 📝\n\n${textoResumo}`);
   } catch (error) {
-    console.error("💥 ERRO !resumo:", error.message);
-    await msg.reply("❌ Erro ao gerar resumo.");
+    console.error("Erro !resumo:", error.message);
+    await msg.reply("❌ Erro ao processar o resumo.");
   }
 }
 

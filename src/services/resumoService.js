@@ -2,11 +2,9 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const partidaService = require("./partidaService");
 
 async function gerarResumoGrupo(chat, mensagensRecentes) {
-  // Inicializa dentro da função (igual seu RSS)
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // 1. Limpeza das mensagens
   const conversaLimpa = (mensagensRecentes || [])
     .filter((m) => m?.body && !m.body.startsWith("!"))
     .map((m) => {
@@ -15,60 +13,49 @@ async function gerarResumoGrupo(chat, mensagensRecentes) {
     })
     .join("\n");
 
-  if (!conversaLimpa) {
-    return "😴 Não teve conversa suficiente pra eu fofocar hoje.";
-  }
+  if (!conversaLimpa) return "😴 Nada de novo no front.";
 
-  // 2. Contexto das lobbies
-  let contextoLobbies = "Nenhuma lobby aberta no momento.";
-
+  let contextoLobbies = "Nenhuma lobby aberta.";
   try {
     const lobbies = await partidaService.getPartidasAbertas(
       chat?.id?._serialized,
     );
-
     if (lobbies?.length > 0) {
       contextoLobbies = lobbies
         .map(
           (l) =>
-            `- Lobby #${l.numero_lobby}: ${l.titulo} (${l.horario || "Sem horário"})`,
+            `- #${l.numero_lobby}: ${l.titulo} (${l.horario || "s/ hora"})`,
         )
         .join("\n");
     }
   } catch (err) {
-    console.error("Erro ao buscar lobbies:", err);
+    console.error(err);
   }
 
-  // 3. Prompt
+  // PROMPT AJUSTADO: Foco em brevidade e civilidade
   const prompt = `
-Você é o moderador zoeiro de um grupo de CS2 chamado Aliados Gaming.
-Faça um resumo curto, engraçado e ácido.
+    Você é o moderador do grupo Aliados Gaming (CS2). 
+    Resuma a resenha de forma MUITO concisa e engraçada.
 
-REGRAS:
-- Use gírias tipo: emocionado, arregão, leigo, segurando o shift
-- Destaque tretas e zoeiras
-- Liste em tópicos
+    REGRAS CRÍTICAS:
+    1. PROIBIDO PALAVRÕES OU TERMOS OFENSIVOS.
+    2. No máximo 3 tópicos curtos e diretos (estilo "bullet points").
+    3. Use gírias: emocionado, arregão, leigo, segurando o shift.
+    4. Seja ácido, mas mantenha o nível.
 
-CONVERSAS:
-${conversaLimpa}
+    CONVERSAS:
+    ${conversaLimpa}
 
-LOBBIES:
-${contextoLobbies}
-`;
+    LOBBIES:
+    ${contextoLobbies}
+  `;
 
   try {
-    const result = await Promise.race([
-      model.generateContent(prompt),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout Gemini")), 30000),
-      ),
-    ]);
-
+    const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
   } catch (error) {
-    console.error("❌ Erro no Gemini:", error.message);
-    return "🤖 Tentei resumir, mas deu ruim aqui... tenta de novo mais tarde!";
+    return "🤖 Tentei fofocar, mas deu erro na rede.";
   }
 }
 
