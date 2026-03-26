@@ -4,58 +4,66 @@ const partidaService = require("./partidaService");
 async function gerarResumoGrupo(chat, mensagensRecentes) {
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-  // 1. FILTRO CRÍTICO: Ignora mensagens enviadas pelo próprio bot (fromMe)
-  // e foca apenas no que os membros escreveram.
+  // 1. DEFINIÇÃO DOS MODELOS (Onde deu o erro antes)
+  const listaModelos = ["gemini-2.5-flash", "gemini-1.5-flash"];
+
+  // 2. FILTRO ANTI-RUÍDO:
+  // Ignora o que o próprio bot escreveu (fromMe) e ignora comandos (!)
   const conversaLimpa = (mensagensRecentes || [])
-    .filter((m) => m?.body && !m.body.startsWith("!") && m.fromMe === false) // <--- ADICIONADO: m.fromMe === false
-    .map((m) => `${m.author?.split("@")[0] || "Sistema"}: ${m.body}`)
+    .filter((m) => m?.body && !m.body.startsWith("!") && m.fromMe === false)
+    .map((m) => {
+      const idCurto = m.author ? m.author.split("@")[0] : "Alguém";
+      return `${idCurto}: ${m.body}`;
+    })
     .join("\n");
 
-  if (!conversaLimpa) return "😴 Silêncio total. Ninguém falou nada útil.";
+  if (!conversaLimpa)
+    return "😴 Silêncio total no grupo. Ninguém abriu o bico.";
 
-  // 2. PROMPT COM "BLINDAGEM" DE CONTEXTO
+  // 3. PROMPT "MURO DE BERLIM": Foco 100% no chat, 0% em notícias externas
   const prompt = `
-    Você é um membro sarcástico do grupo Aliados Gaming.
-    Resuma EXCLUSIVAMENTE o comportamento e as falas dos membros abaixo.
+    Você é um dos membros do grupo Aliados Gaming.
+    Resuma EXCLUSIVAMENTE a conversa dos membros abaixo de forma sarcástica.
 
-    REGRAS DE OURO (NÃO QUEBRE):
-    1. PROIBIDO: Não use seu conhecimento sobre patches, atualizações ou notícias do CS2. 
-    2. Se não estiver escrito nas "CONVERSAS" abaixo, NÃO invente e NÃO mencione.
-    3. FOCO: Zoeiras entre membros, tentativas de lobby, o cara do marketing, etc.
-    4. ESTILO: Máximo 3 parágrafos curtos. Sem "Olá" ou introduções.
-    5. FORMATAÇÃO: Use apenas um asterisco para negrito (*texto*).
-    6. LINGUAGEM: Use 'emocionado', 'arregão', 'leigo'. Sem palavrões.
+    REGRAS CRÍTICAS:
+    - PROIBIDO: Não mencione atualizações do CS2, patch notes, notícias da Valve ou mudanças no jogo.
+    - Se não estiver escrito nas "CONVERSAS" abaixo, IGNORE completamente.
+    - Foque apenas em quem está agitando, quem está arregando de jogar e nas piadas internas.
+    - Estilo: No máximo 3 tópicos curtos e diretos.
+    - Formato: Use apenas um asterisco para negrito (*texto*). 
+    - Sem "Olá" ou introduções. Vá direto ao primeiro ponto.
+    - Use: emocionado, arregão, leigo, segurando o shift.
+    - ZERO PALAVRÃO.
 
-    CONVERSAS PARA ANALISAR (IGNORE TUDO QUE ESTIVER FORA DISSO):
+    CONVERSAS PARA ANALISAR:
     ${conversaLimpa}
   `;
 
-  // Função interna para tentar gerar com um modelo específico
+  // Função interna de tentativa
   async function tentarGerar(modelName) {
     const model = genAI.getGenerativeModel({ model: modelName });
     const result = await Promise.race([
       model.generateContent(prompt),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Timeout")), 15000),
+        setTimeout(() => reject(new Error("Timeout")), 20000),
       ),
     ]);
     const response = await result.response;
     return response.text();
   }
 
-  // Lógica de Tentativa e Erro (Failover)
-  for (const modelName of modelos) {
+  // 4. LÓGICA DE FAILOVER (REDUNDÂNCIA)
+  for (const nomeDoModelo of listaModelos) {
     try {
-      return await tentarGerar(modelName);
+      console.log(`--- Tentando gerar resumo com: ${nomeDoModelo} ---`);
+      return await tentarGerar(nomeDoModelo);
     } catch (err) {
-      console.log(
-        `⚠️ Falha no modelo ${modelName}: ${err.message}. Tentando próximo...`,
-      );
-      continue; // Pula para o próximo modelo da lista
+      console.error(`❌ Falha no modelo ${nomeDoModelo}:`, err.message);
+      // Se for o último da lista, ele vai para o catch final lá embaixo
     }
   }
 
-  return "🤖 O Google tá de sacanagem hoje. Tentei todos os modelos e nenhum respondeu!";
+  throw new Error("Nenhum modelo do Gemini respondeu a tempo.");
 }
 
 module.exports = { gerarResumoGrupo };
