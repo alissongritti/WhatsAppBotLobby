@@ -82,6 +82,7 @@ async function criarPartida({
   senderId,
   titulo,
   horario,
+  dataPartida, // "DD/MM" ou null
   tipo,
   maxPlayers,
   numeroLobby,
@@ -89,9 +90,9 @@ async function criarPartida({
   const db = getDb();
 
   return db.run(
-    `INSERT INTO partidas (group_id, criador_id, titulo, horario, tipo, max_players, numero_lobby)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [groupId, senderId, titulo, horario, tipo, maxPlayers, numeroLobby],
+    `INSERT INTO partidas (group_id, criador_id, titulo, horario, data_partida, tipo, max_players, numero_lobby)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [groupId, senderId, titulo, horario, dataPartida ?? null, tipo, maxPlayers, numeroLobby],
   );
 }
 
@@ -105,25 +106,17 @@ async function cancelarPartida(partidaId) {
 
 async function atualizarHorario(partidaId, horario) {
   const db = getDb();
-  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [
-    horario,
-    partidaId,
-  ]);
+  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [horario, partidaId]);
 }
 
 async function atualizarTitulo(partidaId, titulo) {
   const db = getDb();
-  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [
-    titulo,
-    partidaId,
-  ]);
+  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [titulo, partidaId]);
 }
 
 async function concluirPartida(partidaId) {
   const db = getDb();
-  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [
-    partidaId,
-  ]);
+  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [partidaId]);
 }
 
 async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
@@ -146,31 +139,45 @@ async function getTodasPartidasComHorario() {
 
 async function marcarAlarmeDisparado(partidaId) {
   const db = getDb();
-  await db.run("UPDATE partidas SET alarme_disparado = 1 WHERE id = ?", [
-    partidaId,
-  ]);
+  await db.run("UPDATE partidas SET alarme_disparado = 1 WHERE id = ?", [partidaId]);
 }
 
+/**
+ * Vassoura: cancela apenas lobbies abertas SEM data futura.
+ * Lobbies agendadas para datas futuras são preservadas.
+ */
 async function limparPartidasEsquecidas() {
   const db = getDb();
+  const agora = new Date();
+  const hoje = `${agora.getDate().toString().padStart(2, "0")}/${(agora.getMonth() + 1).toString().padStart(2, "0")}`;
+
+  // Cancela lobbies sem data_partida OU cuja data_partida seja hoje (já tratadas pelo alarme)
+  // Preserva as que têm data_partida futura
   await db.run(
-    "UPDATE partidas SET status = 'CANCELADA' WHERE status = 'ABERTA'",
+    `UPDATE partidas SET status = 'CANCELADA'
+     WHERE status = 'ABERTA'
+     AND (
+       data_partida IS NULL
+       OR data_partida = ?
+     )`,
+    [hoje],
   );
 }
 
-async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr) {
+async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr, novaData) {
   const db = getDb();
-  
+
   const partidasAtivas = await db.all(
-    `SELECT p.horario, p.numero_lobby, p.titulo 
+    `SELECT p.horario, p.data_partida, p.numero_lobby, p.titulo
      FROM partidas p
      JOIN jogadores_partida jp ON p.id = jp.partida_id
      WHERE p.group_id = ? AND jp.jogador_id = ? AND jp.papel = 'TITULAR' AND p.status = 'ABERTA'`,
-    [groupId, senderId]
+    [groupId, senderId],
   );
 
   if (partidasAtivas.length === 0) return null;
 
+  // Sem horário novo → barra direto na primeira partida ativa
   if (!novoHorarioStr) return partidasAtivas[0];
 
   const horaParaMin = (hhmm) => {
@@ -183,14 +190,14 @@ async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr) {
   for (const p of partidasAtivas) {
     if (!p.horario) return p;
 
+    // Se as datas são diferentes, não há conflito de horário
+    if (novaData && p.data_partida && novaData !== p.data_partida) continue;
+
     const minExistente = horaParaMin(p.horario);
     let diferenca = Math.abs(minNovo - minExistente);
-    
     if (diferenca > 720) diferenca = 1440 - diferenca;
 
-    if (diferenca < 90) { 
-      return p;
-    }
+    if (diferenca < 90) return p;
   }
 
   return null;

@@ -106,6 +106,12 @@ async function iniciarBanco() {
     // Coluna já existe, ignora
   }
 
+  try {
+    await db.exec("ALTER TABLE partidas ADD COLUMN data_partida TEXT");
+  } catch (e) {
+    // Coluna já existe, ignora
+  }
+
   console.log("📦 Banco de dados SQLite conectado e pronto!");
 }
 

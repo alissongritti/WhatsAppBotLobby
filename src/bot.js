@@ -24,7 +24,15 @@ function getClient() {
 function initBot() {
   client = new Client({
     authStrategy: new LocalAuth(),
-    puppeteer: { args: ["--no-sandbox"] },
+    puppeteer: {
+      protocolTimeout: 60000,
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+      ],
+    },
   });
 
   client.on("qr", (qr) => {
