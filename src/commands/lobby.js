@@ -2,12 +2,11 @@ const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
 const { gerarListaTexto } = require("../utils/listFormatter");
 const { marcarTodos, mencionarJogadores } = require("../utils/mentions");
-const {
-  parseDateHorario,
-  dataDeHoje,
-  dataEFutura,
-} = require("../utils/timeParser");
+const { parseDateHorario, dataDeHoje, dataEFutura, diasAteData } = require("../utils/timeParser");
 const grupoService = require("../services/grupoService");
+
+const LIMITE_DIAS_AGENDAMENTO = 7;
+const DIFERENCA_MINIMA_MIN = 90;
 
 async function criarLobby({
   msg,
@@ -17,53 +16,49 @@ async function criarLobby({
   senderId,
   groupId,
 }) {
-  // --- PARSE DE PARÂMETROS ---
   const isMix = comando === "!mix";
   let horario = "";
-  let dataPartida = null; // "DD/MM" ou null
+  let dataPartida = null;
   let titulo = isMix ? "MIX 5X5" : "LOBBY";
 
+  // --- PARSE DE PARÂMETROS ---
   if (parametro) {
     const palavras = parametro.split(" ");
-
-    // Tenta parsear data e/ou horário nos primeiros tokens
-    const {
-      data,
-      horario: h,
-      tokensConsumidos,
-    } = parseDateHorario(palavras[0], palavras[1]);
+    const { data, horario: h, tokensConsumidos } = parseDateHorario(palavras[0], palavras[1]);
 
     if (tokensConsumidos > 0) {
       dataPartida = data;
       horario = h || "";
 
-      // Valida se a data é futura (ou hoje)
       if (dataPartida && !dataEFutura(dataPartida)) {
+        await msg.reply(`⚠️ A data *${dataPartida}* já passou. Informe uma data válida.`);
+        return;
+      }
+
+      if (dataPartida && diasAteData(dataPartida) > LIMITE_DIAS_AGENDAMENTO) {
         await msg.reply(
-          `⚠️ A data *${dataPartida}* já passou. Informe uma data futura ou de hoje.`,
+          `📅 Calma, organizadão! Só é possível agendar com até *${LIMITE_DIAS_AGENDAMENTO} dias* de antecedência.\nTente uma data mais próxima.`
         );
         return;
       }
 
-      // O restante dos tokens é o título
       const restoTokens = palavras.slice(tokensConsumidos).join(" ").trim();
       if (restoTokens) titulo = restoTokens.toUpperCase();
     } else {
-      // Nenhum token era data/hora — tudo é título
       titulo = parametro.toUpperCase();
     }
   }
 
-  // Se tem data mas não tem horário, exige horário
+  // Data informada sem horário
   if (dataPartida && !horario) {
     await msg.reply(
       `⚠️ Você informou a data *${dataPartida}* mas esqueceu o horário.\n` +
-        `Exemplo: *${comando} ${dataPartida} 20h ${titulo !== (isMix ? "MIX 5X5" : "LOBBY") ? titulo : ""}*`.trim(),
+      `Exemplo: *${comando} ${dataPartida} 20h${titulo !== (isMix ? "MIX 5X5" : "LOBBY") ? " " + titulo : ""}*`
     );
     return;
   }
 
-  // ─── TRAVA DE CONFLITO DE HORÁRIO ──────────────────────────────────────────
+  // --- TRAVA DE CONFLITO DE HORÁRIO ---
   const conflito = await partidaService.verificarConflitoDeHorario(
     groupId,
     senderId,
@@ -72,21 +67,16 @@ async function criarLobby({
   );
 
   if (conflito) {
-    const infoH = conflito.horario
-      ? ` às *${conflito.horario}*`
-      : " (sem horário)";
-    const infoD = conflito.data_partida
-      ? ` no dia *${conflito.data_partida}*`
-      : "";
+    const infoH = conflito.horario ? ` às *${conflito.horario}*` : " (sem horário definido)";
+    const infoD = conflito.data_partida ? ` em *${conflito.data_partida}*` : "";
     await msg.reply(
-      `🚨 Emocionado! Você já é titular na *Lobby #${conflito.numero_lobby}: ${conflito.titulo}*${infoD}${infoH}.\n\n` +
-        `Para criar outra, as partidas precisam ter pelo menos *1h30* de diferença.`,
+      `🚨 Você já é titular na *${conflito.tipo ?? "Lobby"} #${conflito.numero_lobby}: ${conflito.titulo}*${infoD}${infoH}.\n\n` +
+      `Para criar outra, as partidas precisam ter pelo menos *1h30* de diferença.`
     );
     return;
   }
-  // ───────────────────────────────────────────────────────────────────────────
 
-  const DIFERENCA_MINIMA_MIN = 90;
+  // --- VALIDAÇÃO DE LOBBIES ABERTAS ---
   const agora = new Date();
   const horaAtualStr =
     agora.getHours().toString().padStart(2, "0") +
@@ -105,14 +95,12 @@ async function criarLobby({
 
   for (const lobby of lobbiesAbertas) {
     const numTitulares = await partidaService.contarTitulares(lobby.id);
-    const estaCheia = numTitulares >= lobby.max_players;
+    if (numTitulares >= lobby.max_players) continue;
 
-    // Lobby com data futura nunca é cancelada aqui
     const lobbyEhFutura = lobby.data_partida && lobby.data_partida !== dataHoje;
-    const horarioPassou =
-      !lobbyEhFutura && lobby.horario ? horaAtualStr > lobby.horario : false;
-
-    if (estaCheia) continue;
+    const horarioPassou = !lobbyEhFutura && lobby.horario
+      ? horaAtualStr > lobby.horario
+      : false;
 
     if (horarioPassou) {
       await partidaService.cancelarPartida(lobby.id);
@@ -122,39 +110,35 @@ async function criarLobby({
 
     if (!lobby.horario) {
       await msg.reply(
-        `⚠️ O ${lobby.tipo} #${lobby.numero_lobby} ainda tem vagas e não tem horário definido.\n\n` +
-          `Para criar outra sala, preencha as vagas ou atribua um horário:\n` +
-          `*!horario HH:mm* — para definir o horário\n` +
-          `*!eu ${lobby.numero_lobby}* — para entrar nela`,
+        `⚠️ O ${lobby.tipo} #${lobby.numero_lobby} ainda tem vagas e está sem horário definido.\n\n` +
+        `Defina um horário ou entre nela antes de abrir outra:\n` +
+        `*!horario HH:mm* — definir horário\n` +
+        `*!eu ${lobby.numero_lobby}* — entrar na fila`
       );
       return;
     }
 
-    // Só verifica conflito de horário se as datas forem iguais (ou ambas sem data)
     const mesmoDia =
       (!dataPartida && !lobby.data_partida) ||
       (!dataPartida && lobby.data_partida === dataHoje) ||
-      (dataPartida && lobby.data_partida === dataPartida) ||
-      (!dataPartida && !lobby.data_partida);
+      (dataPartida && lobby.data_partida === dataPartida);
 
     if (horario && mesmoDia) {
-      const minLobbyExistente = horaParaMinutos(lobby.horario);
-      const minNovaLobby = horaParaMinutos(horario);
-      const diferenca = Math.abs(minNovaLobby - minLobbyExistente);
+      const diferenca = Math.abs(horaParaMinutos(horario) - horaParaMinutos(lobby.horario));
       const diferencaReal = diferenca > 720 ? 1440 - diferenca : diferenca;
 
       if (diferencaReal < DIFERENCA_MINIMA_MIN) {
         await msg.reply(
-          `⚠️ O ${lobby.tipo} #${lobby.numero_lobby} já está marcado para as *${lobby.horario}*.\n\n` +
-            `Para criar outra sala, o horário precisa ter pelo menos *1h30 de diferença*.\n` +
-            `*!eu ${lobby.numero_lobby}* — para entrar nela`,
+          `⚠️ Já tem o ${lobby.tipo} #${lobby.numero_lobby} marcado para as *${lobby.horario}*.\n\n` +
+          `O horário precisa ter pelo menos *1h30 de diferença*.\n` +
+          `*!eu ${lobby.numero_lobby}* — para entrar nela`
         );
         return;
       }
     } else if (!horario && !lobbyEhFutura) {
       await msg.reply(
-        `Calma lá! O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) ainda tem vagas para o time titular.\n` +
-          `Mande *!eu ${lobby.numero_lobby}* para entrar nela antes de tentar criar outra.`,
+        `Ei! O ${lobby.tipo} #${lobby.numero_lobby} (${lobby.horario}) ainda tem vagas.\n` +
+        `Mande *!eu ${lobby.numero_lobby}* para entrar antes de abrir outra.`
       );
       return;
     }
@@ -179,10 +163,9 @@ async function criarLobby({
   const partidaId = result.lastID;
   await jogadorService.adicionarJogador(partidaId, senderId, "TITULAR");
 
-  // Monta prefixo de data/hora para exibição
   let infoAgendamento = "";
   if (dataPartida && horario) {
-    infoAgendamento = `📅 Agendado para *${dataPartida}* às *${horario}*\n`;
+    infoAgendamento = `📅 *Agendado para ${dataPartida} às ${horario}*\n`;
   }
 
   let texto = textoAviso + infoAgendamento;
@@ -191,19 +174,12 @@ async function criarLobby({
 
   await marcarTodos(chat, texto);
 
-  const suplentesOutras = await partidaService.getSuplentesDeOutrasPartidas(
-    groupId,
-    partidaId,
-  );
+  const suplentesOutras = await partidaService.getSuplentesDeOutrasPartidas(groupId, partidaId);
   if (suplentesOutras.length > 0) {
     const aviso =
-      `👀 *Atenção Reservas!*\nA Lobby #${numeroLobby} acabou de ser criada com vagas para titulares!\n\n` +
-      `Se quiserem sair do banco e jogar nesta nova, mandem:\n*!sair* (para sair da atual)\ne depois *!eu ${numeroLobby}*`;
-    await mencionarJogadores(
-      chat,
-      aviso,
-      suplentesOutras.map((s) => s.jogador_id),
-    );
+      `👀 *Atenção Reservas!*\nA ${tipo} #${numeroLobby} acabou de ser criada com vagas para titulares!\n\n` +
+      `Quer trocar de fila?\n*!sair* — sair da atual\n*!eu ${numeroLobby}* — entrar nessa`;
+    await mencionarJogadores(chat, aviso, suplentesOutras.map((s) => s.jogador_id));
   }
 }
 

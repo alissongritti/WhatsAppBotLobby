@@ -1,48 +1,9 @@
 const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
-const resumoService = require("../services/resumoService"); // Adicionado o novo serviço
 const { gerarListaTexto } = require("../utils/listFormatter");
+const { dataDeHoje } = require("../utils/timeParser");
 
 const HORAS_AVISO_LOBBY_ANTIGA = 3;
-
-const resumosPorGrupo = new Map();
-const COOLDOWN_RESUMO = 60 * 60 * 1000; // 1 hora em milissegundos
-
-async function resumo({ msg, chat, groupId }) {
-  const agora = Date.now();
-  const ultimoResumo = resumosPorGrupo.get(groupId) || 0;
-  const tempoPassado = agora - ultimoResumo;
-
-  // Verifica se está no período de cooldown
-  if (tempoPassado < COOLDOWN_RESUMO) {
-    const minutosRestantes = Math.ceil(
-      (COOLDOWN_RESUMO - tempoPassado) / (60 * 1000),
-    );
-    return msg.reply(
-      `⏳ Calma aí, fofoqueiro! O resumo tem um tempo de espera para não poluir o grupo. Tente novamente em ${minutosRestantes} minutos.`,
-    );
-  }
-
-  try {
-    await msg.reply("🤖 Peraí, vou ler a resenha e te conto o essencial...");
-
-    const mensagens = await chat.fetchMessages({ limit: 80 }); // Reduzi para 80 para ser mais rápido
-
-    if (!mensagens || mensagens.length < 5) {
-      return msg.reply("Pouca conversa para um resumo.");
-    }
-
-    const textoResumo = await resumoService.gerarResumoGrupo(chat, mensagens);
-
-    // Atualiza o tempo do último resumo com sucesso
-    resumosPorGrupo.set(groupId, Date.now());
-
-    await chat.sendMessage(`📝 *RESUMO EXPRESSO* 📝\n\n${textoResumo}`);
-  } catch (error) {
-    console.error("Erro !resumo:", error.message);
-    await msg.reply("❌ Erro ao processar o resumo.");
-  }
-}
 
 async function meunick({ msg, parametro, senderId }) {
   if (!parametro) {
@@ -53,31 +14,28 @@ async function meunick({ msg, parametro, senderId }) {
       );
     } else {
       await msg.reply(
-        "Você ainda não definiu um nick personalizado.\nComo quer ser chamado? Exemplo: *!nick Sonzera*",
+        "Você ainda não definiu um nick.\nComo quer ser chamado? Exemplo: *!nick Sonzera*",
       );
     }
     return;
   }
 
   if (parametro.length > 15) {
-    await msg.reply(
-      "Nick muito grande, emocionado! Escolha um com até 15 letras.",
-    );
+    await msg.reply("Nick muito longo! Escolha um com até 15 caracteres.");
     return;
   }
 
   await jogadorService.setNick(senderId, parametro);
-  await msg.reply(
-    `✅ Nick atualizado! A partir de agora vou te chamar de *${parametro}*.`,
-  );
+  await msg.reply(`✅ Feito! A partir de agora você é *${parametro}*.`);
 }
 
 async function status({ msg, chat, groupId }) {
   const abertas = await partidaService.getPartidasAbertas(groupId);
+  const dataHoje = dataDeHoje();
 
   if (abertas.length === 0) {
     await msg.reply(
-      "🟢 *Bot tá ON!*\nMas não tem nenhuma partida aberta no momento. Mande *!lobby* ou *!mix* para criar uma!",
+      "🟢 *Bot tá ON!*\nNão tem nenhuma partida aberta no momento.\nMande *!lobby* ou *!mix* para criar uma!",
     );
     return;
   }
@@ -91,10 +49,20 @@ async function status({ msg, chat, groupId }) {
 
     let texto = await gerarListaTexto(partida.id, partida.max_players);
 
+    if (partida.data_partida && partida.data_partida !== dataHoje) {
+      texto =
+        `📅 *${partida.data_partida}` +
+        (partida.horario ? ` às ${partida.horario}` : "") +
+        `*\n` +
+        texto;
+    } else if (partida.horario) {
+      texto = `⏰ *${partida.horario}*\n` + texto;
+    }
+
     if (vagasRestantes === 0) {
-      texto += `\n🔥 A lista principal tá cheia! Mas você pode mandar *!eu ${partida.numero_lobby}* pra ir pro banco de reservas.`;
+      texto += `\n🔥 Lista cheia! Mande *!eu ${partida.numero_lobby}* para ir pro banco de reservas.`;
     } else {
-      texto += `\nRestam ${vagasRestantes} vagas! Mande *!eu ${partida.numero_lobby}* para entrar.`;
+      texto += `\n${vagasRestantes} vaga${vagasRestantes > 1 ? "s" : ""} restante${vagasRestantes > 1 ? "s" : ""}! Mande *!eu ${partida.numero_lobby}* para entrar.`;
     }
 
     if (!partida.horario && partida.data_criacao) {
@@ -103,7 +71,7 @@ async function status({ msg, chat, groupId }) {
 
       if (idadeMs >= LIMITE_MS) {
         const horas = Math.floor(idadeMs / (60 * 60 * 1000));
-        texto += `\n\n⏰ *Solta o shift aí, amigão!* Essa lobby tá aberta há *${horas}h* sem horário definido.\nUse *!horario HH:mm* para marcar ou *!cancelar* para liberar a fila.`;
+        texto += `\n\n⏰ *Essa lobby tá aberta há ${horas}h sem horário definido.*\nUse *!horario HH:mm* para marcar ou *!cancelar* para liberar a fila.`;
       }
     }
 
@@ -117,16 +85,17 @@ async function comandos({ chat }) {
     "",
     "🎮 *Criação de Partidas:*",
     "*!lobby [hora]* - Cria fila para 5 jogadores.",
+    "*!lobby [DD/MM] [hora]* - Agenda fila para uma data futura (máx. 7 dias).",
     "*!mix [hora]* - Cria um 5x5 para 10 jogadores.",
+    "*!mix [DD/MM] [hora]* - Agenda um 5x5 para uma data futura (máx. 7 dias).",
     "",
     "👤 *Interação:*",
     "*!eu* - Entra na lista.",
     "*!sair* - Sai da lista.",
     "*!status* - Mostra as listas atuais.",
     "*!nick [nome]* - Muda seu nome.",
-    "*!resumo* - Resumo do que aconteceu no grupo hoje.", // Comando adicionado à lista
-    "*!silenciar* - Não receberá notificação.",
-    "*!notificar* - Reativa a notificação.",
+    "*!silenciar* - Não receberá notificações.",
+    "*!notificar* - Reativa as notificações.",
     "*!discord* - Consulta o discord do grupo.",
     "*!jogos* - Consulta os jogos de CS2 do dia.",
     "*!jogosbr* - Consulta os jogos de times brasileiros do dia.",
@@ -149,16 +118,15 @@ async function comandos({ chat }) {
 async function silenciar({ msg, senderId }) {
   await jogadorService.silenciarJogador(senderId);
   await msg.reply(
-    "🔕 *Notificações Desativadas!*\nVocê não será mais marcado quando uma nova lobby for criada.\nPara voltar a receber, mande *!notificar*.",
+    "🔕 *Notificações desativadas!*\nVocê não será marcado em novas lobbies.\nPara voltar, mande *!notificar*.",
   );
 }
 
 async function notificar({ msg, senderId }) {
   await jogadorService.notificarJogador(senderId);
   await msg.reply(
-    "🔔 *Notificações Ativadas!*\nVocê voltará a ser marcado nas novas lobbies. Bora pro jogo!",
+    "🔔 *Notificações ativadas!*\nVocê voltará a ser marcado nas novas lobbies. Bora pro jogo!",
   );
 }
 
-// Exportando a nova função resumo
-module.exports = { meunick, status, comandos, silenciar, notificar, resumo };
+module.exports = { meunick, status, comandos, silenciar, notificar };

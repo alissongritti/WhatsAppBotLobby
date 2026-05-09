@@ -27,7 +27,6 @@ const COMMAND_MAP = {
   "!resultadosbr": hltvCmd.listarResultadosBR,
   "!novidades": hltvCmd.listarNovidades,
   "!atualizarjogos": hltvCmd.atualizarJogosAdmin,
-  "!resumo": miscCmd.resumo,
 };
 
 async function router(context) {
@@ -35,7 +34,6 @@ async function router(context) {
     const comando = context?.comando?.trim().toLowerCase();
     if (!comando) return;
 
-    // Log limpo: [Hora] Comando: !exemplo | De: nick
     console.log(
       `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome}`,
     );

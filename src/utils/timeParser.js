@@ -89,10 +89,26 @@ function dataDeHoje() {
   return `${agora.getDate().toString().padStart(2, "0")}/${(agora.getMonth() + 1).toString().padStart(2, "0")}`;
 }
 
+/**
+ * Retorna quantos dias faltam até "DD/MM" (0 = hoje, 1 = amanhã, etc.).
+ * Assume ano corrente; se já passou, assume ano seguinte.
+ */
+function diasAteData(ddmm) {
+  if (!ddmm) return 0;
+  const [dia, mes] = ddmm.split("/").map(Number);
+  const agora = new Date();
+  const ano = agora.getFullYear();
+  let alvo = new Date(ano, mes - 1, dia);
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  if (alvo < hoje) alvo = new Date(ano + 1, mes - 1, dia);
+  return Math.round((alvo - hoje) / (1000 * 60 * 60 * 24));
+}
+
 module.exports = {
   parseHorario,
   parseData,
   parseDateHorario,
   dataEFutura,
   dataDeHoje,
+  diasAteData,
 };
