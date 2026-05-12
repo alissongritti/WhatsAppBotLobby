@@ -40,52 +40,78 @@ O coração do bot é o gerenciamento de filas. O sistema entende quem é titula
 
 ---
 
+## 📅 Agendamento de Partidas
+
+É possível criar lobbies e mixes para datas futuras, com limite de **7 dias de antecedência**.
+
+```
+!lobby 17/05 20h Ranqueada
+!mix 17/05 21h Mix Semanal
+```
+
+- A partida aparece com o prefixo `📅 17/05 às 20:00` em todas as interações (`!eu`, `!sair`, `!status`).
+- A vassoura noturna (05:00) preserva automaticamente lobbies com data futura, cancelando apenas as esquecidas do dia.
+- O alarme da hora H dispara notificação aos titulares quando o horário chega, independentemente de a partida ter sido criada no mesmo dia ou agendada com antecedência.
+
+---
+
 ## 🛠️ Diferenciais Técnicos
 
 ### 🛡️ Sistema de Debounce (Anti-Race Condition)
+
 Em grupos de WhatsApp, é comum que vários jogadores enviem `!eu` ao mesmo tempo. Sem tratamento, isso geraria uma race condition onde 6 pessoas poderiam entrar em uma vaga de 5.
 
 A solução implementa um **debounce via `Set` (`jogadoresEmOperacao`)**:
+
 - Bloqueia operações simultâneas do mesmo ID por 3 segundos.
 - Garante que a escrita no SQLite seja atômica e sequencial.
 - Evita duplicidade de jogadores no banco de dados.
 
 ### 🔔 Notificações Seletivas
+
 Os jogadores podem controlar se desejam ser mencionados em novas chamadas de lobby através dos comandos `!silenciar` e `!notificar`. Isso reduz o spam para quem não pode jogar no momento.
 
 ### 🔐 Filtro de Autorização de Grupos
+
 O bot não responde em qualquer lugar. Uma camada de middleware valida `isGrupoAutorizado` antes de processar qualquer lógica de negócio, impedindo uso não autorizado e economizando recursos de processamento.
 
 ### 📰 Patch Notes Automáticos com IA
+
 O bot monitora o feed RSS oficial da Valve a cada 30 minutos. Quando uma atualização é detectada, o conteúdo em inglês é enviado ao Google Gemini, que traduz e resume as mudanças em português com formatação gamer — e distribui automaticamente para todos os grupos autorizados.
+
+### 🏃 Sistema de Arregadas com Critério Temporal
+
+O bot rastreia arregadas com uma lógica precisa: a penalidade só é registrada quando o jogador sai faltando **menos de 1 hora** para o início **e** a lobby já tem pelo menos metade dos titulares confirmados. Saídas com antecedência ou de lobbies vazias não contam — só arregar de verdade penaliza.
 
 ---
 
 ## 📜 Comandos Principais
 
-| Comando | Descrição |
-| :--- | :--- |
-| `!lobby [hora] [titulo]` | Cria uma fila para 5 jogadores. |
-| `!mix [hora] [titulo]` | Cria um 5x5 para 10 jogadores. |
-| `!eu` | Entra no lobby atual (Titular ou Reserva). |
-| `!sair` | Sai da partida e libera a vaga. |
-| `!status` | Exibe o status atual do lobby. |
-| `!start` | Fecha o lobby, inicia o jogo e contabiliza estatísticas. |
-| `!cancelar` | Cancela o lobby e reseta a fila. |
-| `!kick [pos] ou !kick @player` | Remove um jogador da lista. |
-| `!horario [hora]` | Atualiza o horário da partida. |
-| `!titulo [nome]` | Atualiza o título da partida. |
-| `!nick [nome]` | Define seu apelido na lista. |
-| `!silenciar` | Desativa menções automáticas para você. |
-| `!notificar` | Reativa menções automáticas para você. |
-| `!jogos` | Lista os jogos de CS2 do dia. |
-| `!jogosbr` | Lista os jogos de times brasileiros do dia. |
-| `!resultados` | Resultados dos jogos do dia. |
-| `!resultadosbr` | Resultados dos times brasileiros do dia. |
-| `!novidades` | Última atualização oficial do CS2 resumida por IA. |
-| `!setdiscord [link]` | (Admin) Define o link do Discord do grupo. |
-| `!discord` | Exibe o link do Discord configurado. |
-| `!comandos` | Lista todos os comandos disponíveis. |
+| Comando                          | Descrição                                                |
+| :------------------------------- | :------------------------------------------------------- |
+| `!lobby [hora] [titulo]`         | Cria uma fila para 5 jogadores.                          |
+| `!lobby [DD/MM] [hora] [titulo]` | Agenda uma fila para data futura (máx. 7 dias).          |
+| `!mix [hora] [titulo]`           | Cria um 5x5 para 10 jogadores.                           |
+| `!mix [DD/MM] [hora] [titulo]`   | Agenda um 5x5 para data futura (máx. 7 dias).            |
+| `!eu`                            | Entra no lobby atual (Titular ou Reserva).               |
+| `!sair`                          | Sai da partida e libera a vaga.                          |
+| `!status`                        | Exibe o status atual do lobby.                           |
+| `!start`                         | Fecha o lobby, inicia o jogo e contabiliza estatísticas. |
+| `!cancelar`                      | Cancela o lobby e reseta a fila.                         |
+| `!kick [pos] ou !kick @player`   | Remove um jogador da lista.                              |
+| `!horario [hora]`                | Atualiza o horário da partida.                           |
+| `!titulo [nome]`                 | Atualiza o título da partida.                            |
+| `!nick [nome]`                   | Define seu apelido na lista.                             |
+| `!silenciar`                     | Desativa menções automáticas para você.                  |
+| `!notificar`                     | Reativa menções automáticas para você.                   |
+| `!jogos`                         | Lista os jogos de CS2 do dia.                            |
+| `!jogosbr`                       | Lista os jogos de times brasileiros do dia.              |
+| `!resultados`                    | Resultados dos jogos do dia.                             |
+| `!resultadosbr`                  | Resultados dos times brasileiros do dia.                 |
+| `!novidades`                     | Última atualização oficial do CS2 resumida por IA.       |
+| `!setdiscord [link]`             | (Admin) Define o link do Discord do grupo.               |
+| `!discord`                       | Exibe o link do Discord configurado.                     |
+| `!comandos`                      | Lista todos os comandos disponíveis.                     |
 
 ---
 
@@ -99,9 +125,10 @@ O bot monitora o feed RSS oficial da Valve a cada 30 minutos. Quando uma atualiz
 
 ---
 
-*Desenvolvido para quem não aguenta mais perder tempo organizando mix. Se for pra trollar, nem entra no lobby.* 🔫💨
+_Desenvolvido para quem não aguenta mais perder tempo organizando mix. Se for pra trollar, nem entra no lobby._ 🔫💨
 
 ---
+
 ---
 
 # 🎮 Bot Aliados — CS2 Lobby Manager for WhatsApp
@@ -139,52 +166,78 @@ The core of the bot is its queue management engine. It automatically distinguish
 
 ---
 
+## 📅 Match Scheduling
+
+Lobbies and mixes can be scheduled up to **7 days in advance**.
+
+```
+!lobby 17/05 20h Ranked Night
+!mix 17/05 21h Weekly Mix
+```
+
+- Scheduled matches display a `📅 17/05 at 20:00` prefix across all interactions (`!eu`, `!sair`, `!status`).
+- The nightly cleanup job (05:00) preserves future-dated lobbies, only cancelling forgotten ones from the current day.
+- The hour-H alarm notifies all starters when match time arrives, whether the lobby was created same-day or scheduled in advance.
+
+---
+
 ## 🛠️ Technical Highlights
 
 ### 🛡️ Debounce System (Anti-Race Condition)
+
 In WhatsApp groups, multiple players often send `!eu` simultaneously. Without proper handling, this causes a race condition where 6 players could join a 5-player slot.
 
 The solution implements a **debounce mechanism via a JavaScript `Set` (`jogadoresEmOperacao`)**:
+
 - Blocks concurrent operations from the same user ID for 3 seconds.
 - Ensures SQLite writes are atomic and sequential.
 - Prevents duplicate player entries in the database.
 
 ### 🔔 Selective Notifications
+
 Players can opt out of group mentions when a new lobby is created using `!silenciar`, and opt back in with `!notificar` — reducing noise for those who aren't available to play.
 
 ### 🔐 Group Authorization Middleware
+
 The bot doesn't respond just anywhere. A middleware layer validates `isGrupoAutorizado` before processing any business logic — preventing unauthorized usage and saving unnecessary compute.
 
 ### 📰 AI-Powered Patch Notes
+
 The bot polls the official Valve RSS feed every 30 minutes. When an update is detected, the English content is sent to Google Gemini, which translates and summarizes the changes in Portuguese with gamer-friendly formatting — then automatically broadcasts to all authorized groups.
+
+### 🏃 Time-Aware Choke Tracking
+
+The bot tracks rage-quits with a precise rule: a penalty is only recorded when a player leaves with **less than 1 hour** until match time **and** the lobby already has at least half its starters confirmed. Leaving early or abandoning an empty lobby doesn't count — only real last-minute chokes do.
 
 ---
 
 ## 📜 Commands
 
-| Command | Description |
-| :--- | :--- |
-| `!lobby [time] [title]` | Creates a 5-player queue. |
-| `!mix [time] [title]` | Creates a 5v5 queue for 10 players. |
-| `!eu` | Joins the lobby (starter or substitute). |
-| `!sair` | Leaves the match and frees the slot. |
-| `!status` | Shows current lobby status. |
-| `!start` | Closes lobby and records match stats. |
-| `!cancelar` | Cancels the lobby and resets the queue. |
-| `!kick [pos] or !kick @player` | Removes a player from the list. |
-| `!horario [time]` | Updates the match time. |
-| `!titulo [name]` | Updates the match title. |
-| `!nick [name]` | Sets your display name in the list. |
-| `!silenciar` | Disables automatic mentions for you. |
-| `!notificar` | Re-enables automatic mentions for you. |
-| `!jogos` | Today's CS2 professional matches. |
-| `!jogosbr` | Today's Brazilian team matches. |
-| `!resultados` | Today's match results. |
-| `!resultadosbr` | Today's Brazilian team results. |
-| `!novidades` | Latest CS2 update summarized by AI. |
-| `!setdiscord [link]` | (Admin) Set group's Discord link. |
-| `!discord` | Show group's Discord link. |
-| `!comandos` | Lists all available commands. |
+| Command                         | Description                                    |
+| :------------------------------ | :--------------------------------------------- |
+| `!lobby [time] [title]`         | Creates a 5-player queue.                      |
+| `!lobby [DD/MM] [time] [title]` | Schedules a 5-player queue up to 7 days ahead. |
+| `!mix [time] [title]`           | Creates a 5v5 queue for 10 players.            |
+| `!mix [DD/MM] [time] [title]`   | Schedules a 5v5 queue up to 7 days ahead.      |
+| `!eu`                           | Joins the lobby (starter or substitute).       |
+| `!sair`                         | Leaves the match and frees the slot.           |
+| `!status`                       | Shows current lobby status.                    |
+| `!start`                        | Closes lobby and records match stats.          |
+| `!cancelar`                     | Cancels the lobby and resets the queue.        |
+| `!kick [pos] or !kick @player`  | Removes a player from the list.                |
+| `!horario [time]`               | Updates the match time.                        |
+| `!titulo [name]`                | Updates the match title.                       |
+| `!nick [name]`                  | Sets your display name in the list.            |
+| `!silenciar`                    | Disables automatic mentions for you.           |
+| `!notificar`                    | Re-enables automatic mentions for you.         |
+| `!jogos`                        | Today's CS2 professional matches.              |
+| `!jogosbr`                      | Today's Brazilian team matches.                |
+| `!resultados`                   | Today's match results.                         |
+| `!resultadosbr`                 | Today's Brazilian team results.                |
+| `!novidades`                    | Latest CS2 update summarized by AI.            |
+| `!setdiscord [link]`            | (Admin) Set group's Discord link.              |
+| `!discord`                      | Show group's Discord link.                     |
+| `!comandos`                     | Lists all available commands.                  |
 
 ---
 
@@ -198,4 +251,4 @@ The bot polls the official Valve RSS feed every 30 minutes. When an update is de
 
 ---
 
-*Built for people who are tired of wasting 10 minutes organizing a lobby before every match. If you're going to troll, don't join.* 🔫
+_Built for people who are tired of wasting 10 minutes organizing a lobby before every match. If you're going to troll, don't join._ 🔫
