@@ -17,16 +17,22 @@ async function resolverNomeJogador(jogadorId) {
   }
 }
 
-async function gerarListaTexto(partidaId, maxPlayers) {
+/**
+ * Gera o texto completo da lista de uma partida.
+ *
+ * @param {number} partidaId
+ * @param {number} maxPlayers
+ * @param {string|null} dataHoje - "DD/MM" de hoje. Se fornecido e a partida
+ *   tiver data_partida diferente, exibe o prefixo 📅. Evita duplicar no !status.
+ */
+async function gerarListaTexto(partidaId, maxPlayers, dataHoje = null) {
   const db = getDb();
 
-  // 1. BUSCA OS DADOS DA PARTIDA (O pulo do gato para o cabeçalho não sumir)
   const partida = await db.get(
-    "SELECT tipo, numero_lobby, titulo, horario FROM partidas WHERE id = ?",
+    "SELECT tipo, numero_lobby, titulo, horario, data_partida FROM partidas WHERE id = ?",
     [partidaId],
   );
 
-  // 2. Busca titulares e suplentes
   const jogadores = await db.all(
     "SELECT jogador_id FROM jogadores_partida WHERE partida_id = ? AND papel = 'TITULAR' ORDER BY id ASC",
     [partidaId],
@@ -47,23 +53,34 @@ async function gerarListaTexto(partidaId, maxPlayers) {
       : [];
 
   const nicksMap = Object.fromEntries(nicksRows.map((r) => [r.id, r.nome]));
-
   const resolverNome = async (jogadorId) => {
     if (nicksMap[jogadorId]) return nicksMap[jogadorId];
     return resolverNomeJogador(jogadorId);
   };
 
-  // 3. MONTA O CABEÇALHO (Se a partida existir)
   let texto = "";
+
   if (partida) {
+    // Prefixo de data — só quando a partida é futura e foi passado dataHoje
+    const ehFutura =
+      partida.data_partida && dataHoje && partida.data_partida !== dataHoje;
+
+    if (ehFutura) {
+      texto += `📅 *${partida.data_partida}`;
+      if (partida.horario) texto += ` às ${partida.horario}`;
+      texto += `*\n`;
+    }
+
     texto += `🎮 *${partida.tipo} #${partida.numero_lobby}: ${partida.titulo}* 🎮\n`;
-    if (partida.horario) {
+
+    // Horário só aparece uma vez — e só se não estiver no prefixo de data
+    if (partida.horario && !ehFutura) {
       texto += `⏰ *Horário:* ${partida.horario}\n`;
     }
+
     texto += `\n`;
   }
 
-  // 4. Monta a lista de jogadores
   for (let i = 0; i < maxPlayers; i++) {
     if (jogadores[i]) {
       const nome = await resolverNome(jogadores[i].jogador_id);

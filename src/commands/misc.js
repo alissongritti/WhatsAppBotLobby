@@ -47,17 +47,12 @@ async function status({ msg, chat, groupId }) {
     const numTitulares = await partidaService.contarTitulares(partida.id);
     const vagasRestantes = partida.max_players - numTitulares;
 
-    let texto = await gerarListaTexto(partida.id, partida.max_players);
-
-    if (partida.data_partida && partida.data_partida !== dataHoje) {
-      texto =
-        `📅 *${partida.data_partida}` +
-        (partida.horario ? ` às ${partida.horario}` : "") +
-        `*\n` +
-        texto;
-    } else if (partida.horario) {
-      texto = `⏰ *${partida.horario}*\n` + texto;
-    }
+    // Passa dataHoje para gerarListaTexto cuidar do prefixo de data/hora
+    let texto = await gerarListaTexto(
+      partida.id,
+      partida.max_players,
+      dataHoje,
+    );
 
     if (vagasRestantes === 0) {
       texto += `\n🔥 Lista cheia! Mande *!eu ${partida.numero_lobby}* para ir pro banco de reservas.`;
