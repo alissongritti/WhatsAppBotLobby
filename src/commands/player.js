@@ -68,11 +68,9 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
     if (vagasRestantes === 0) {
       textoFinal += `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
-
       if (partidaAlvo.horario) {
         textoFinal += `\n⏰ Te espero no server às *${partidaAlvo.horario}*!`;
       }
-
       if (linkDiscord) {
         textoFinal += `\n🎧 Bora para o discord - ${linkDiscord}`;
       }
@@ -142,12 +140,43 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     return chat.sendMessage(`🏃 *${nome}* saiu dos suplentes.`);
   }
 
+  // ─── CÁLCULO DA PENALIDADE DE ARREGÃO (Regra de 1 Hora) ──────────────────
   const titularesRestantes = await partidaService.contarTitulares(
     partidaAlvo.id,
   );
-  if (titularesRestantes >= Math.ceil(partidaAlvo.max_players / 2)) {
-    await statsService.registrarArregada(senderId);
+
+  if (partidaAlvo.horario) {
+    const agora = new Date();
+
+    const dataRef = partidaAlvo.data_partida || dataDeHoje();
+    const [dia, mes] = dataRef.split("/").map(Number);
+    const [hora, min] = partidaAlvo.horario.split(":").map(Number);
+
+    // Corrige virada de ano: se o mês da partida já passou neste ano, usa o próximo
+    const ano = agora.getFullYear() + (mes < agora.getMonth() + 1 ? 1 : 0);
+    const dataPartida = new Date(ano, mes - 1, dia, hora, min);
+
+    const diffMs = dataPartida - agora;
+    const umaHoraMs = 60 * 60 * 1000;
+    const metadeCheia =
+      titularesRestantes >= Math.ceil(partidaAlvo.max_players / 2);
+
+    if (diffMs < 0) {
+      console.log(
+        `[STATS] ${nome} saiu, mas o horário (${partidaAlvo.horario}) já passou. Sem penalidade.`,
+      );
+    } else if (diffMs < umaHoraMs && metadeCheia) {
+      await statsService.registrarArregada(senderId);
+      console.log(
+        `[STATS] Arregada registrada: ${nome} saiu faltando ${Math.floor(diffMs / 60000)} min.`,
+      );
+    } else {
+      console.log(
+        `[STATS] ${nome} saiu com antecedência segura (>1h). Sem penalidade.`,
+      );
+    }
   }
+  // ─────────────────────────────────────────────────────────────────────────
 
   const promovidoId = await jogadorService.promoverPrimeiroSuplente(
     partidaAlvo.id,
@@ -178,11 +207,10 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     );
   }
 
-  const dataHojeSair = dataDeHoje();
   let textoSair = await gerarListaTexto(
     partidaAlvo.id,
     partidaAlvo.max_players,
-    dataHojeSair,
+    dataDeHoje(),
   );
 
   if (promovidoNome) {
