@@ -37,12 +37,16 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   );
 
   if (conflito) {
-    const infoHorario = conflito.horario ? ` às *${conflito.horario}*` : " (sem horário)";
-    const infoData = conflito.data_partida ? ` em *${conflito.data_partida}*` : "";
+    const infoHorario = conflito.horario
+      ? ` às *${conflito.horario}*`
+      : " (sem horário)";
+    const infoData = conflito.data_partida
+      ? ` em *${conflito.data_partida}*`
+      : "";
     await msg.reply(
       `🚨 Conflito de agenda, emocionado!\n` +
-      `Você já é titular na *Lobby #${conflito.numero_lobby}: ${conflito.titulo}*${infoData}${infoHorario}.\n\n` +
-      `As partidas precisam ter pelo menos *1h30* de diferença.`
+        `Você já é titular na *Lobby #${conflito.numero_lobby}: ${conflito.titulo}*${infoData}${infoHorario}.\n\n` +
+        `As partidas precisam ter pelo menos *1h30* de diferença.`,
     );
     return;
   }
@@ -56,7 +60,11 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
     await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "TITULAR");
     const vagasRestantes = maxPlayers - (numTitulares + 1);
 
-    let textoFinal = await gerarListaTexto(partidaAlvo.id, maxPlayers, dataHoje);
+    let textoFinal = await gerarListaTexto(
+      partidaAlvo.id,
+      maxPlayers,
+      dataHoje,
+    );
 
     if (vagasRestantes === 0) {
       textoFinal += `\n🔥 *LOBBY FECHADA! BORA PRO JOGO!* 🔥`;
@@ -79,7 +87,11 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
     let textoSuplente = `⚠️ *FILA DE ESPERA!* ⚠️\n`;
     textoSuplente += `*${nome}* entrou no banco (Reserva #${suplentes.length}).\n\n`;
-    textoSuplente += await gerarListaTexto(partidaAlvo.id, maxPlayers, dataHoje);
+    textoSuplente += await gerarListaTexto(
+      partidaAlvo.id,
+      maxPlayers,
+      dataHoje,
+    );
     await chat.sendMessage(textoSuplente);
   }
 }
@@ -98,7 +110,10 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     if (!partidaAlvo)
       return msg.reply(`Não encontrei a partida #${idBuscado} ou já fechou.`);
   } else {
-    const partidas = await partidaService.getPartidasDoJogador(groupId, senderId);
+    const partidas = await partidaService.getPartidasDoJogador(
+      groupId,
+      senderId,
+    );
     if (partidas.length === 0)
       return msg.reply("Burro ou leigo? Você não está em nenhuma partida...");
     if (partidas.length === 1) {
@@ -112,9 +127,14 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     }
   }
 
-  const registro = await jogadorService.getRegistroJogador(partidaAlvo.id, senderId);
+  const registro = await jogadorService.getRegistroJogador(
+    partidaAlvo.id,
+    senderId,
+  );
   if (!registro)
-    return msg.reply(`Você não está na lista da partida #${partidaAlvo.numero_lobby}.`);
+    return msg.reply(
+      `Você não está na lista da partida #${partidaAlvo.numero_lobby}.`,
+    );
 
   await jogadorService.removerJogador(registro.id);
 
@@ -122,12 +142,16 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     return chat.sendMessage(`🏃 *${nome}* saiu dos suplentes.`);
   }
 
-  const titularesRestantes = await partidaService.contarTitulares(partidaAlvo.id);
+  const titularesRestantes = await partidaService.contarTitulares(
+    partidaAlvo.id,
+  );
   if (titularesRestantes >= Math.ceil(partidaAlvo.max_players / 2)) {
     await statsService.registrarArregada(senderId);
   }
 
-  const promovidoId = await jogadorService.promoverPrimeiroSuplente(partidaAlvo.id);
+  const promovidoId = await jogadorService.promoverPrimeiroSuplente(
+    partidaAlvo.id,
+  );
   let promovidoNome = null;
   if (promovidoId) {
     const nickSup = await jogadorService.getNick(promovidoId);
@@ -154,7 +178,12 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     );
   }
 
-  let textoSair = await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players);
+  const dataHojeSair = dataDeHoje();
+  let textoSair = await gerarListaTexto(
+    partidaAlvo.id,
+    partidaAlvo.max_players,
+    dataHojeSair,
+  );
 
   if (promovidoNome) {
     textoSair += `\n🏃 *${nome}* arregou.\n🔄 *${promovidoNome}* subiu para o time titular!`;
@@ -182,8 +211,11 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
   const isSuperAdmin = senderId === process.env.ADMIN_WA_ID;
   let isGroupAdmin = false;
   try {
-    const participant = chat.participants.find((p) => p.id._serialized === senderId);
-    isGroupAdmin = participant && (participant.isAdmin || participant.isSuperAdmin);
+    const participant = chat.participants.find(
+      (p) => p.id._serialized === senderId,
+    );
+    isGroupAdmin =
+      participant && (participant.isAdmin || participant.isSuperAdmin);
   } catch (e) {}
 
   const temPermissao = isSuperAdmin || isGroupAdmin;
@@ -193,7 +225,9 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
 
   if (abertas.length === 1) {
     if (!lobbyDoSender && !temPermissao) {
-      return msg.reply("⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.");
+      return msg.reply(
+        "⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.",
+      );
     }
     partidaAlvo = abertas[0];
   } else {
@@ -206,7 +240,9 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
       if (!isNaN(lobbyNum) && tokens.length > 1) {
         partidaAlvo = abertas.find((p) => p.numero_lobby === lobbyNum) ?? null;
         if (!partidaAlvo)
-          return msg.reply(`⚠️ Lobby #${lobbyNum} não encontrada ou não está aberta.`);
+          return msg.reply(
+            `⚠️ Lobby #${lobbyNum} não encontrada ou não está aberta.`,
+          );
         parametro = tokens.slice(0, -1).join(" ");
       } else {
         let aviso = `⚠️ Há ${abertas.length} lobbies abertas. Especifique qual:\n\n`;
@@ -217,7 +253,9 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
         return msg.reply(aviso);
       }
     } else {
-      return msg.reply("⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.");
+      return msg.reply(
+        "⛔ Sem permissão! Só o dono da lobby ou Admin do grupo.",
+      );
     }
   }
 
@@ -240,7 +278,9 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
     jogadorAlvo = titulares.find((t) => t.jogador_id === mencionadoId) ?? null;
 
     if (!jogadorAlvo)
-      return msg.reply("⚠️ Esse jogador não está na lista de titulares desta lobby.");
+      return msg.reply(
+        "⚠️ Esse jogador não está na lista de titulares desta lobby.",
+      );
   } else {
     return msg.reply(
       "⚠️ Formato inválido. Use *!kick 2* (posição) ou *!kick @Fulano* (menção).",
@@ -250,18 +290,25 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
   if (jogadorAlvo.jogador_id === senderId)
     return msg.reply("Usa o comando *!sair* para sair da lista.");
 
-  await jogadorService.removerJogadorPartida(partidaAlvo.id, jogadorAlvo.jogador_id);
+  await jogadorService.removerJogadorPartida(
+    partidaAlvo.id,
+    jogadorAlvo.jogador_id,
+  );
 
   const temAlguem = await jogadorService.temAlguemNaPartida(partidaAlvo.id);
   if (!temAlguem) {
     await partidaService.cancelarPartida(partidaAlvo.id);
-    return chat.sendMessage(`👢 Lobby #${partidaAlvo.numero_lobby} cancelada após o kick.`);
+    return chat.sendMessage(
+      `👢 Lobby #${partidaAlvo.numero_lobby} cancelada após o kick.`,
+    );
   }
 
   const nickKickado = await jogadorService.getNick(jogadorAlvo.jogador_id);
   const nomeKickado = nickKickado ? nickKickado.nome : "Jogador";
 
-  const promovidoId = await jogadorService.promoverPrimeiroSuplente(partidaAlvo.id);
+  const promovidoId = await jogadorService.promoverPrimeiroSuplente(
+    partidaAlvo.id,
+  );
   let promovidoNome = null;
   if (promovidoId) {
     const nickSup = await jogadorService.getNick(promovidoId);
@@ -272,7 +319,11 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
   textoKick += posicao
     ? `*${nomeKickado}* foi removido da posição ${posicao}.\n\n`
     : `*${nomeKickado}* foi removido da lobby.\n\n`;
-  textoKick += await gerarListaTexto(partidaAlvo.id, partidaAlvo.max_players);
+  textoKick += await gerarListaTexto(
+    partidaAlvo.id,
+    partidaAlvo.max_players,
+    dataDeHoje(),
+  );
 
   if (promovidoNome) {
     textoKick += `\n🔄 *A fila andou! ${promovidoNome} subiu para o time titular!*`;
@@ -291,7 +342,9 @@ async function resolverPartidaAlvo({ msg, parametro, groupId, acao }) {
     }
     const partida = await partidaService.getPartidaPorLobby(groupId, idBuscado);
     if (!partida) {
-      await msg.reply(`Não encontrei nenhuma partida aberta com o ID #${idBuscado} neste grupo.`);
+      await msg.reply(
+        `Não encontrei nenhuma partida aberta com o ID #${idBuscado} neste grupo.`,
+      );
       return null;
     }
     return partida;
@@ -299,7 +352,9 @@ async function resolverPartidaAlvo({ msg, parametro, groupId, acao }) {
 
   const abertas = await partidaService.getPartidasAbertas(groupId);
   if (abertas.length === 0) {
-    await msg.reply("Nenhuma partida aberta no momento. Envia *!lobby* ou *!mix* para criar uma!");
+    await msg.reply(
+      "Nenhuma partida aberta no momento. Envia *!lobby* ou *!mix* para criar uma!",
+    );
     return null;
   }
   if (abertas.length === 1) return abertas[0];
