@@ -35,7 +35,7 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   );
   if (jaEstaInscrito) {
     return msg.reply(
-      `⚠️ Você já está na *Lobby #${partidaAlvo.numero_lobby}* como *${jaEstaInscrito.papel}*!`,
+      `⚠️ CALMÔ MULA! Você já está na *Lobby #${partidaAlvo.numero_lobby}* como *${jaEstaInscrito.papel}*!`,
     );
   }
 
