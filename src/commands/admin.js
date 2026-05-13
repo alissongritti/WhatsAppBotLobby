@@ -8,6 +8,13 @@ const grupoService = require("../services/grupoService");
 
 const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
 
+// Helper para formatar linha de lobby nas listagens
+function formatarLinhaLobby(p) {
+  const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
+  const infoHora = p.horario ? ` às ${p.horario}` : "";
+  return `Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora}\n`;
+}
+
 async function start({ msg, chat, senderId, groupId }) {
   const isSuperAdmin = senderId === SUPER_ADMIN_ID;
 
@@ -102,9 +109,7 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
       partida = abertas[0];
     } else if (abertas.length > 1) {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja alterar?\n\n`;
-      abertas.forEach((p) => {
-        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
-      });
+      abertas.forEach((p) => { texto += formatarLinhaLobby(p); });
       await msg.reply(texto);
       return;
     }
@@ -118,8 +123,6 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
   }
 
   // ─── CHECK DE CONFLITO PARA CADA TITULAR ─────────────────────────────────
-  // Verifica se o novo horário conflita com outra partida de algum titular.
-  // Passa o ID da própria partida para ser ignorado na comparação.
   const titulares = await jogadorService.getTitulares(partida.id);
   const conflitantes = [];
 
@@ -129,7 +132,7 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
       titular.jogador_id,
       horarioFormatado,
       partida.data_partida,
-      partida.id, // ignora a própria partida
+      partida.id,
     );
     if (conflito) {
       const nick = await jogadorService.getNick(titular.jogador_id);
@@ -179,6 +182,7 @@ async function titulo({ msg, chat, parametro, senderId, groupId }) {
   await chat.sendMessage(texto);
 }
 
+// Helper: busca partida do admin ou responde com erro
 async function getPartidaOuErro(msg, groupId, senderId) {
   const isSuperAdmin = senderId === SUPER_ADMIN_ID;
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
@@ -193,9 +197,7 @@ async function getPartidaOuErro(msg, groupId, senderId) {
       partida = abertas[0];
     } else {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja operar?\n\n`;
-      abertas.forEach((p) => {
-        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
-      });
+      abertas.forEach((p) => { texto += formatarLinhaLobby(p); });
       await msg.reply(texto);
       return null;
     }

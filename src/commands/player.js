@@ -143,7 +143,9 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
     } else {
       let textoAviso = `Você está em ${partidas.length} partidas! Especifique qual:\n\n`;
       partidas.forEach((p) => {
-        textoAviso += `ID #${p.numero_lobby} - ${p.titulo}\n`;
+        const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
+        const infoHora = p.horario ? ` às ${p.horario}` : "";
+        textoAviso += `ID #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora}\n`;
       });
       return msg.reply(textoAviso);
     }
@@ -299,7 +301,9 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
       } else {
         let aviso = `⚠️ Há ${abertas.length} lobbies abertas. Especifique qual:\n\n`;
         abertas.forEach((p) => {
-          aviso += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+          const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
+          const infoHora = p.horario ? ` às ${p.horario}` : "";
+          aviso += `Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora}\n`;
         });
         aviso += `\nExemplo: *!kick 2 ${abertas[0].numero_lobby}* ou *!kick @Fulano ${abertas[0].numero_lobby}*`;
         return msg.reply(aviso);
