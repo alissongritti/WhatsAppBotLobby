@@ -389,7 +389,9 @@ async function resolverPartidaAlvo({ msg, parametro, groupId, acao }) {
 
   let textoAviso = `Temos ${abertas.length} partidas abertas! Especifica em qual queres entrar:\n\n`;
   abertas.forEach((p) => {
-    textoAviso += `ID #${p.numero_lobby} - ${p.titulo} (${p.tipo})\n`;
+    const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
+    const infoHora = p.horario ? ` às ${p.horario}` : "";
+    textoAviso += `ID #${p.numero_lobby} - ${p.titulo} (${p.tipo})${infoData}${infoHora}\n`;
   });
   textoAviso += `\nExemplo: *!${acao} ${abertas[0].numero_lobby}*`;
   await msg.reply(textoAviso);

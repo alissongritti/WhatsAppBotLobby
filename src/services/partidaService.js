@@ -92,7 +92,16 @@ async function criarPartida({
   return db.run(
     `INSERT INTO partidas (group_id, criador_id, titulo, horario, data_partida, tipo, max_players, numero_lobby)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [groupId, senderId, titulo, horario, dataPartida ?? null, tipo, maxPlayers, numeroLobby],
+    [
+      groupId,
+      senderId,
+      titulo,
+      horario,
+      dataPartida ?? null,
+      tipo,
+      maxPlayers,
+      numeroLobby,
+    ],
   );
 }
 
@@ -106,17 +115,25 @@ async function cancelarPartida(partidaId) {
 
 async function atualizarHorario(partidaId, horario) {
   const db = getDb();
-  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [horario, partidaId]);
+  await db.run("UPDATE partidas SET horario = ? WHERE id = ?", [
+    horario,
+    partidaId,
+  ]);
 }
 
 async function atualizarTitulo(partidaId, titulo) {
   const db = getDb();
-  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [titulo, partidaId]);
+  await db.run("UPDATE partidas SET titulo = ? WHERE id = ?", [
+    titulo,
+    partidaId,
+  ]);
 }
 
 async function concluirPartida(partidaId) {
   const db = getDb();
-  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [partidaId]);
+  await db.run("UPDATE partidas SET status = 'CONCLUIDA' WHERE id = ?", [
+    partidaId,
+  ]);
 }
 
 async function getSuplentesDeOutrasPartidas(groupId, partidaIdAtual) {
@@ -139,7 +156,9 @@ async function getTodasPartidasComHorario() {
 
 async function marcarAlarmeDisparado(partidaId) {
   const db = getDb();
-  await db.run("UPDATE partidas SET alarme_disparado = 1 WHERE id = ?", [partidaId]);
+  await db.run("UPDATE partidas SET alarme_disparado = 1 WHERE id = ?", [
+    partidaId,
+  ]);
 }
 
 /**
@@ -163,7 +182,12 @@ async function limparPartidasEsquecidas() {
   );
 }
 
-async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr, novaData) {
+async function verificarConflitoDeHorario(
+  groupId,
+  senderId,
+  novoHorarioStr,
+  novaData,
+) {
   const db = getDb();
 
   const partidasAtivas = await db.all(
@@ -189,7 +213,10 @@ async function verificarConflitoDeHorario(groupId, senderId, novoHorarioStr, nov
   for (const p of partidasAtivas) {
     if (!p.horario) return p;
 
-    // Se as datas são diferentes, não há conflito de horário
+    // Se a nova lobby tem data futura e a existente não tem data (é de hoje), não há conflito
+    if (novaData && !p.data_partida && novaData !== dataDeHoje()) continue;
+
+    // Se ambas têm datas e são diferentes, não há conflito
     if (novaData && p.data_partida && novaData !== p.data_partida) continue;
 
     const minExistente = horaParaMin(p.horario);
