@@ -137,7 +137,9 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
   await jogadorService.removerJogador(registro.id);
 
   if (registro.papel === "SUPLENTE") {
-    return chat.sendMessage(`🏃 *${nome}* saiu dos suplentes.`);
+    return chat.sendMessage(
+      `🏃 *${nome}* saiu dos suplentes da *Lobby #${partidaAlvo.numero_lobby}: ${partidaAlvo.titulo}*.`,
+    );
   }
 
   // ─── CÁLCULO DA PENALIDADE DE ARREGÃO (Regra de 1 Hora) ──────────────────
