@@ -29,6 +29,16 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   });
   if (!partidaAlvo) return;
 
+  const jaEstaInscrito = await jogadorService.getRegistroJogador(
+    partidaAlvo.id,
+    senderId,
+  );
+  if (jaEstaInscrito) {
+    return msg.reply(
+      `⚠️ Você já está na *Lobby #${partidaAlvo.numero_lobby}* como *${jaEstaInscrito.papel}*!`,
+    );
+  }
+
   const conflito = await partidaService.verificarConflitoDeHorario(
     groupId,
     senderId,
