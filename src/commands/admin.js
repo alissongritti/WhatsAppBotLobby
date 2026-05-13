@@ -11,11 +11,10 @@ const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
 async function start({ msg, chat, senderId, groupId }) {
   const isSuperAdmin = senderId === SUPER_ADMIN_ID;
 
-  // Busca partida onde o sender é criador OU titular
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
-  if (!partida) partida = await partidaService.getPartidaDoTitular(groupId, senderId);
+  if (!partida)
+    partida = await partidaService.getPartidaDoTitular(groupId, senderId);
 
-  // Super admin pode dar start em qualquer lobby aberta
   if (!partida && isSuperAdmin) {
     const abertas = await partidaService.getPartidasAbertas(groupId);
     if (abertas.length === 0) {
@@ -26,7 +25,9 @@ async function start({ msg, chat, senderId, groupId }) {
   }
 
   if (!partida) {
-    await msg.reply("⚠️ Você precisa estar na lobby como titular para dar start!");
+    await msg.reply(
+      "⚠️ Você precisa estar na lobby como titular para dar start!",
+    );
     return;
   }
 
@@ -52,14 +53,20 @@ async function cancelar({ msg, chat, parametro, senderId, groupId }) {
   if (parametro) {
     const numeroLobby = parseInt(parametro);
     if (isNaN(numeroLobby))
-      return msg.reply("⚠️ Formato inválido. Use *!cancelar* ou *!cancelar [número]*. Ex: *!cancelar 2*");
+      return msg.reply(
+        "⚠️ Formato inválido. Use *!cancelar* ou *!cancelar [número]*. Ex: *!cancelar 2*",
+      );
 
     partida = await partidaService.getPartidaPorLobby(groupId, numeroLobby);
     if (!partida)
-      return msg.reply(`⚠️ Não encontrei a lobby #${numeroLobby} ou ela já foi encerrada.`);
+      return msg.reply(
+        `⚠️ Não encontrei a lobby #${numeroLobby} ou ela já foi encerrada.`,
+      );
 
     if (partida.criador_id !== senderId && !isSuperAdmin)
-      return msg.reply("⛔ Só o dono da lobby ou o super admin pode cancelar esta partida.");
+      return msg.reply(
+        "⛔ Só o dono da lobby ou o super admin pode cancelar esta partida.",
+      );
   } else {
     partida = await getPartidaOuErro(msg, groupId, senderId);
     if (!partida) return;
@@ -72,7 +79,6 @@ async function cancelar({ msg, chat, parametro, senderId, groupId }) {
 }
 
 async function horario({ msg, parametro, senderId, groupId, chat }) {
-  // 1. Verifica se o cara mandou algum parâmetro
   if (!parametro) {
     await msg.reply(
       "⚠️ Você precisa informar o novo horário. Exemplo: *!horario 22:30*",
@@ -80,10 +86,7 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
     return;
   }
 
-  // 2. Passa o parâmetro pelo nosso tradutor rigoroso
   const horarioFormatado = parseHorario(parametro);
-
-  // Se o tradutor retornou null, não é um horário válido. Barra a operação!
   if (!horarioFormatado) {
     await msg.reply(
       "⚠️ Horário inválido! Use formatos como *22h*, *22:30* ou *22*.",
@@ -91,7 +94,6 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
     return;
   }
 
-  // 3. Busca a partida — criador ou super admin
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
 
   if (!partida && senderId === SUPER_ADMIN_ID) {
@@ -100,24 +102,57 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
       partida = abertas[0];
     } else if (abertas.length > 1) {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja alterar?\n\n`;
-      abertas.forEach((p) => { texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`; });
+      abertas.forEach((p) => {
+        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+      });
       await msg.reply(texto);
       return;
     }
   }
 
   if (!partida) {
-    await msg.reply("⚠️ Você não é o dono de nenhuma partida aberta no momento para mudar o horário.");
+    await msg.reply(
+      "⚠️ Você não é o dono de nenhuma partida aberta no momento para mudar o horário.",
+    );
     return;
   }
 
-  // 4. Atualiza no banco de dados com o formato perfeito (HH:mm)
+  // ─── CHECK DE CONFLITO PARA CADA TITULAR ─────────────────────────────────
+  // Verifica se o novo horário conflita com outra partida de algum titular.
+  // Passa o ID da própria partida para ser ignorado na comparação.
+  const titulares = await jogadorService.getTitulares(partida.id);
+  const conflitantes = [];
+
+  for (const titular of titulares) {
+    const conflito = await partidaService.verificarConflitoDeHorario(
+      groupId,
+      titular.jogador_id,
+      horarioFormatado,
+      partida.data_partida,
+      partida.id, // ignora a própria partida
+    );
+    if (conflito) {
+      const nick = await jogadorService.getNick(titular.jogador_id);
+      const nomeExibido = nick ? nick.nome : "Jogador";
+      conflitantes.push(
+        `• *${nomeExibido}* já tem a *Lobby #${conflito.numero_lobby}* às *${conflito.horario}*`,
+      );
+    }
+  }
+
+  if (conflitantes.length > 0) {
+    await msg.reply(
+      `⚠️ O horário *${horarioFormatado}* conflita com outra partida para os seguintes jogadores:\n\n` +
+        conflitantes.join("\n") +
+        `\n\nEles teriam menos de *1h30* entre as duas partidas. Escolha outro horário.`,
+    );
+    return;
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   await partidaService.atualizarHorario(partida.id, horarioFormatado);
 
-  // 5. Avisa a galera que já estava na sala (Menção Cirúrgica)
-  const titulares = await jogadorService.getTitulares(partida.id);
   const mentionsIds = titulares.map((t) => t.jogador_id);
-
   await mencionarJogadores(
     chat,
     `⏰ O horário da partida #${partida.numero_lobby} foi alterado para *${horarioFormatado}* pelo dono da sala!`,
@@ -144,8 +179,6 @@ async function titulo({ msg, chat, parametro, senderId, groupId }) {
   await chat.sendMessage(texto);
 }
 
-// Helper: busca partida do admin ou responde com erro
-// Super admin pode operar em qualquer partida aberta do grupo
 async function getPartidaOuErro(msg, groupId, senderId) {
   const isSuperAdmin = senderId === SUPER_ADMIN_ID;
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
@@ -160,14 +193,18 @@ async function getPartidaOuErro(msg, groupId, senderId) {
       partida = abertas[0];
     } else {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja operar?\n\n`;
-      abertas.forEach((p) => { texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`; });
+      abertas.forEach((p) => {
+        texto += `Lobby #${p.numero_lobby} - ${p.titulo}\n`;
+      });
       await msg.reply(texto);
       return null;
     }
   }
 
   if (!partida) {
-    await msg.reply("Tá achando que é admin? Você não criou nenhuma partida aberta!");
+    await msg.reply(
+      "Tá achando que é admin? Você não criou nenhuma partida aberta!",
+    );
   }
   return partida;
 }
@@ -178,7 +215,6 @@ async function setDiscord({ msg, chat, parametro, senderId, groupId }) {
     return;
   }
 
-  // Trava de Admin
   let isGroupAdmin = false;
   try {
     if (Array.isArray(chat.participants)) {

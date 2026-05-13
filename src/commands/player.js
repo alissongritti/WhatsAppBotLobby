@@ -9,6 +9,8 @@ const grupoService = require("../services/grupoService");
 const jogadoresEmOperacao = new Set();
 const DEBOUNCE_MS = 3000;
 
+const MAX_SUPLENTES = 5;
+
 function bloquearJogador(senderId) {
   if (jogadoresEmOperacao.has(senderId)) return false;
   jogadoresEmOperacao.add(senderId);
@@ -29,6 +31,7 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
   });
   if (!partidaAlvo) return;
 
+  // Trava de duplicidade
   const jaEstaInscrito = await jogadorService.getRegistroJogador(
     partidaAlvo.id,
     senderId,
@@ -90,11 +93,22 @@ async function entrar({ msg, chat, parametro, senderId, nome, groupId }) {
 
     await chat.sendMessage(textoFinal);
   } else {
-    await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "SUPLENTE");
+    // Trava de limite de suplentes
     const suplentes = await jogadorService.getSuplentes(partidaAlvo.id);
+    if (suplentes.length >= MAX_SUPLENTES) {
+      return msg.reply(
+        `⚠️ O banco de reservas da *Lobby #${partidaAlvo.numero_lobby}* já está cheio (${MAX_SUPLENTES}/${MAX_SUPLENTES}).\n` +
+          `Aguarde uma vaga ou crie uma nova lobby!`,
+      );
+    }
+
+    await jogadorService.adicionarJogador(partidaAlvo.id, senderId, "SUPLENTE");
+    const suplentesAtualizados = await jogadorService.getSuplentes(
+      partidaAlvo.id,
+    );
 
     let textoSuplente = `⚠️ *FILA DE ESPERA!* ⚠️\n`;
-    textoSuplente += `*${nome}* entrou no banco (Reserva #${suplentes.length}).\n\n`;
+    textoSuplente += `*${nome}* entrou no banco (Reserva #${suplentesAtualizados.length}).\n\n`;
     textoSuplente += await gerarListaTexto(
       partidaAlvo.id,
       maxPlayers,
@@ -159,12 +173,10 @@ async function sair({ msg, chat, parametro, senderId, nome, groupId }) {
 
   if (partidaAlvo.horario) {
     const agora = new Date();
-
     const dataRef = partidaAlvo.data_partida || dataDeHoje();
     const [dia, mes] = dataRef.split("/").map(Number);
     const [hora, min] = partidaAlvo.horario.split(":").map(Number);
 
-    // Corrige virada de ano: se o mês da partida já passou neste ano, usa o próximo
     const ano = agora.getFullYear() + (mes < agora.getMonth() + 1 ? 1 : 0);
     const dataPartida = new Date(ano, mes - 1, dia, hora, min);
 
@@ -316,7 +328,6 @@ async function kick({ msg, chat, parametro, senderId, groupId, mentionedIds }) {
   } else if (temMencao) {
     const mencionadoId = mentionedIds[0];
     jogadorAlvo = titulares.find((t) => t.jogador_id === mencionadoId) ?? null;
-
     if (!jogadorAlvo)
       return msg.reply(
         "⚠️ Esse jogador não está na lista de titulares desta lobby.",

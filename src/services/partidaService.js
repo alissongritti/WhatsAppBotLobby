@@ -1,5 +1,5 @@
 const { getDb } = require("../database");
-const { dataDeHoje } = require("../utils/timeParser"); //
+const { dataDeHoje } = require("../utils/timeParser");
 
 async function getPartidasAbertas(groupId) {
   const db = getDb();
@@ -89,7 +89,6 @@ async function criarPartida({
   numeroLobby,
 }) {
   const db = getDb();
-
   return db.run(
     `INSERT INTO partidas (group_id, criador_id, titulo, horario, data_partida, tipo, max_players, numero_lobby)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -98,7 +97,7 @@ async function criarPartida({
       senderId,
       titulo,
       horario,
-      dataPartida, // Agora sempre recebe DD/MM do lobby.js
+      dataPartida,
       tipo,
       maxPlayers,
       numeroLobby,
@@ -162,44 +161,56 @@ async function marcarAlarmeDisparado(partidaId) {
   ]);
 }
 
+async function getTitularesComId(partidaId) {
+  const db = getDb();
+  return db.all(
+    "SELECT jogador_id FROM jogadores_partida WHERE partida_id = ? AND papel = 'TITULAR'",
+    [partidaId],
+  );
+}
+
 /**
- * Vassoura Simplificada: Agora que data_partida nunca é null,
- * a query fica direta e performática.
+ * Vassoura: cancela lobbies do dia cujo horário já passou.
+ * Lobbies de dias futuros são preservadas naturalmente (data_partida > hoje).
  */
 async function limparPartidasEsquecidas() {
   const db = getDb();
-  const hoje = dataDeHoje(); //
-
+  const hoje = dataDeHoje();
   const agora = new Date();
   const horaAtual =
     agora.getHours().toString().padStart(2, "0") +
     ":" +
     agora.getMinutes().toString().padStart(2, "0");
 
-  // Cancela o que era de hoje e o horário já passou
-  // Lobbies agendadas (data_partida > hoje) são preservadas naturalmente.
   await db.run(
-    `UPDATE partidas SET status = 'CANCELADA' 
-     WHERE status = 'ABERTA' 
-     AND data_partida = ? 
+    `UPDATE partidas SET status = 'CANCELADA'
+     WHERE status = 'ABERTA'
+     AND data_partida = ?
      AND (horario IS NULL OR horario < ?)`,
     [hoje, horaAtual],
   );
 }
 
 /**
- * Conflito de Horário Simplificado: Compara strings de data normalizadas.
+ * Verifica conflito de horário entre partidas do mesmo jogador no mesmo dia.
+ *
+ * @param {string} groupId
+ * @param {string} senderId
+ * @param {string} novoHorarioStr - "HH:mm"
+ * @param {string} novaData       - "DD/MM" — sempre normalizado pelo lobby.js
+ * @param {number|null} partidaIdAExcluir - ID da própria partida (edição de horário)
  */
 async function verificarConflitoDeHorario(
   groupId,
   senderId,
   novoHorarioStr,
-  novaData, // Garantido como DD/MM pelo lobby.js
+  novaData,
+  partidaIdAExcluir = null,
 ) {
   const db = getDb();
 
   const partidasAtivas = await db.all(
-    `SELECT p.horario, p.data_partida, p.numero_lobby, p.titulo
+    `SELECT p.id, p.horario, p.data_partida, p.numero_lobby, p.titulo
      FROM partidas p
      JOIN jogadores_partida jp ON p.id = jp.partida_id
      WHERE p.group_id = ? AND jp.jogador_id = ? AND jp.papel = 'TITULAR' AND p.status = 'ABERTA'`,
@@ -207,7 +218,6 @@ async function verificarConflitoDeHorario(
   );
 
   if (partidasAtivas.length === 0) return null;
-
   if (!novoHorarioStr) return partidasAtivas[0];
 
   const horaParaMin = (hhmm) => {
@@ -218,9 +228,12 @@ async function verificarConflitoDeHorario(
   const minNovo = horaParaMin(novoHorarioStr);
 
   for (const p of partidasAtivas) {
+    // Ignora a própria partida durante edição de horário
+    if (partidaIdAExcluir && p.id === partidaIdAExcluir) continue;
+
     if (!p.horario) return p;
 
-    // Se as datas são diferentes (strings DD/MM), pula direto para o próximo
+    // Datas diferentes → sem conflito
     if (novaData !== p.data_partida) continue;
 
     const minExistente = horaParaMin(p.horario);
@@ -241,6 +254,7 @@ module.exports = {
   getPartidaDoJogador,
   getPartidasDoJogador,
   contarTitulares,
+  getTitularesComId,
   gerarNumeroLobbyDisponivel,
   criarPartida,
   cancelarPartida,
