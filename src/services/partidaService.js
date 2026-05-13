@@ -150,17 +150,16 @@ async function limparPartidasEsquecidas() {
   const db = getDb();
   const agora = new Date();
   const hoje = `${agora.getDate().toString().padStart(2, "0")}/${(agora.getMonth() + 1).toString().padStart(2, "0")}`;
+  const horaAtual = `${agora.getHours().toString().padStart(2, "0")}:${agora.getMinutes().toString().padStart(2, "0")}`;
 
-  // Cancela lobbies sem data_partida OU cuja data_partida seja hoje (já tratadas pelo alarme)
-  // Preserva as que têm data_partida futura
   await db.run(
     `UPDATE partidas SET status = 'CANCELADA'
      WHERE status = 'ABERTA'
      AND (
        data_partida IS NULL
-       OR data_partida = ?
+       OR (data_partida = ? AND (horario IS NULL OR horario < ?))
      )`,
-    [hoje],
+    [hoje, horaAtual],
   );
 }
 
