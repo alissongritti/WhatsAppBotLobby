@@ -1,4 +1,5 @@
 const { getDb } = require("../database");
+const { dataDeHoje } = require("../utils/timeParser");
 
 async function getPartidasAbertas(groupId) {
   const db = getDb();
