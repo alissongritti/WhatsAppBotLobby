@@ -1,12 +1,19 @@
 /**
  * Parseia uma string de horário e retorna "HH:mm" ou null.
- * Aceita: "20h", "20:30", "20h30", "9", etc.
+ *
+ * Formatos aceitos:
+ *   "20h", "20h30", "20:30", "20:30h", "9", "9h", "9:05", "0h", "23:59"
+ *   "12:15" (o caso que gerou o bug — hora no meio do título)
  */
 function parseHorario(texto) {
   if (!texto) return null;
 
   let limpo = texto.toLowerCase().trim();
+
+  // Remove sufixos de hora para normalizar
   limpo = limpo.replace(/horas?|hrs?|hs|h/g, ":").replace(/min/g, "");
+
+  // Remove ":" trailing
   if (limpo.endsWith(":")) limpo = limpo.slice(0, -1);
 
   const regex = /^([01]?[0-9]|2[0-3])(?:[:]?([0-5][0-9]))?$/;
@@ -21,17 +28,15 @@ function parseHorario(texto) {
 
 /**
  * Parseia uma string de data e retorna "DD/MM" ou null.
- * Aceita: "10/05", "10-05", "10.05", "10/5"
+ *
+ * Formatos aceitos:
+ *   "10/05", "10-05", "10.05", "10/5", "1/5"
  */
 function parseData(texto) {
   if (!texto) return null;
 
   const limpo = texto.trim();
-  /** * Regex ajustado: 
-   * - Dia: Aceita 0-9, 00-29, 30-31
-   * - Mes: Aceita 1-9 ou 01-12 (zero à esquerda agora é opcional)
-   */
-  const match = limpo.match(/^([0-2]?[0-9]|3[01])[\/\-\.](0?[1-9]|1[0-2])$/); 
+  const match = limpo.match(/^([0-2]?[0-9]|3[01])[\/\-\.](0?[1-9]|1[0-2])$/);
   if (!match) return null;
 
   const dia = match[1].padStart(2, "0");
@@ -41,24 +46,45 @@ function parseData(texto) {
 }
 
 /**
- * Parseia tokens para identificar data e hora na criação da lobby.
+ * Varre TODOS os tokens do parâmetro procurando data e hora em qualquer posição.
+ *
+ * Exemplos que agora funcionam:
+ *   "all mossar 12:15 ANTI-DESUMILDE"  → { data: null, horario: "12:15", titulo: "ALL MOSSAR ANTI-DESUMILDE" }
+ *   "14/05 20h Mix Semanal"            → { data: "14/05", horario: "20:00", titulo: "MIX SEMANAL" }
+ *   "20h Ranqueada"                    → { data: null, horario: "20:00", titulo: "RANQUEADA" }
+ *   "Ranqueada 20h"                    → { data: null, horario: "20:00", titulo: "RANQUEADA" }
+ *   "14/05 Mix"                        → { data: "14/05", horario: null,  titulo: "MIX" }
+ *   "Mix 14/05 20h"                    → { data: "14/05", horario: "20:00", titulo: "MIX" }
+ *
+ * Retorna: { data, horario, tituloTokens }
+ *   - data: "DD/MM" ou null
+ *   - horario: "HH:mm" ou null
+ *   - tituloTokens: array de tokens que não eram data nem hora (o título)
  */
-function parseDateHorario(token1, token2) {
-  const data1 = parseData(token1);
-  const hora1 = parseHorario(token1);
+function parseDateHorario(parametro) {
+  if (!parametro) return { data: null, horario: null, tituloTokens: [] };
 
-  // Caso o primeiro token seja uma data (ex: !lobby 14/05 20h)
-  if (data1) {
-    const hora2 = token2 ? parseHorario(token2) : null;
-    return { data: data1, horario: hora2, tokensConsumidos: hora2 ? 2 : 1 };
+  const tokens = parametro.split(" ");
+  let data = null;
+  let horario = null;
+  const tituloTokens = [];
+
+  for (const token of tokens) {
+    if (!data) {
+      const d = parseData(token);
+      if (d) { data = d; continue; }
+    }
+
+    if (!horario) {
+      const h = parseHorario(token);
+      if (h) { horario = h; continue; }
+    }
+
+    // Token não é data nem hora — faz parte do título
+    tituloTokens.push(token);
   }
 
-  // Caso o primeiro token seja apenas hora (ex: !lobby 20h)
-  if (hora1) {
-    return { data: null, horario: hora1, tokensConsumidos: 1 };
-  }
-
-  return { data: null, horario: null, tokensConsumidos: 0 };
+  return { data, horario, tituloTokens };
 }
 
 /**
@@ -70,7 +96,6 @@ function dataEFutura(ddmm) {
   const agora = new Date();
   const ano = agora.getFullYear();
 
-  // Se a data já passou no ano corrente, assume que é para o ano que vem
   let alvo = new Date(ano, mes - 1, dia);
   if (alvo < new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())) {
     alvo = new Date(ano + 1, mes - 1, dia);
@@ -96,12 +121,12 @@ function diasAteData(ddmm) {
   const [dia, mes] = ddmm.split("/").map(Number);
   const agora = new Date();
   const ano = agora.getFullYear();
-  
+
   let alvo = new Date(ano, mes - 1, dia);
   const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-  
+
   if (alvo < hoje) alvo = new Date(ano + 1, mes - 1, dia);
-  
+
   return Math.round((alvo - hoje) / (1000 * 60 * 60 * 24));
 }
 
