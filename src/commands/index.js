@@ -35,7 +35,7 @@ async function router(context) {
     if (!comando) return;
 
     console.log(
-      `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome}`,
+      `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome} | Grupo: ${context.groupId}`,
     );
 
     const handler = COMMAND_MAP[comando];
