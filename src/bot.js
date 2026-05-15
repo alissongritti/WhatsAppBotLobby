@@ -111,7 +111,7 @@ function initBot() {
       }
 
       // ─── 4. Execução do Comando ──────────────────────────────────────────────
-      await router(context);
+      await router({ ...context, nomeGrupo: chat.name || chat.id._serialized });
     } catch (err) {
       console.error("⚠️ Erro ao processar mensagem:", err.message);
     }

@@ -34,10 +34,10 @@ async function router(context) {
     const comando = context?.comando?.trim().toLowerCase();
     if (!comando) return;
 
+    const nomeGrupo = context.nomeGrupo || context.groupId;
     console.log(
-      `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome} | Grupo: ${context.groupId}`,
+      `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome} | Grupo: ${nomeGrupo}`,
     );
-
     const handler = COMMAND_MAP[comando];
     if (handler) {
       await handler(context);
