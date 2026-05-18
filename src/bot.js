@@ -7,11 +7,10 @@ const {
   isGrupoAutorizado,
   autorizarGrupo,
 } = require("./services/grupoService");
+const { ehSuperAdmin } = require("./services/adminService");
 
 const ADMIN_WA_ID = process.env.ADMIN_WA_ID;
 
-// Guarda IDs de grupos que já notificamos o admin — evita spam de DM
-// O Set é limpo quando o bot reinicia, o que é suficiente para o caso de uso
 const gruposJaNotificados = new Set();
 
 let client;
@@ -53,39 +52,29 @@ function initBot() {
 
     try {
       const chat = await msg.getChat();
+      const contact = await msg.getContact();
+      const senderId = contact.id._serialized;
 
-      // ─── 1. Comando !aprovar via DM (só o admin) ─────────────────────────────
+      // ─── 1. DM — só o owner tem acesso ──────────────────────────────────────
       if (!chat.isGroup) {
-        const contact = await msg.getContact();
-        const isAdmin = contact.id._serialized === ADMIN_WA_ID;
-        const textoLower = msg.body.toLowerCase().trim();
+        if (senderId !== ADMIN_WA_ID) return; // Silêncio absoluto para qualquer outro
 
-        if (isAdmin && textoLower.startsWith("!aprovar")) {
-          const groupId = msg.body.split(" ")[1]?.trim();
+        const context = await parseMessage(msg, chat);
+        if (!context) return;
 
-          if (!groupId) {
-            await msg.reply(
-              "⚠️ Informe o ID do grupo. Ex: *!aprovar 120363XXXXXXXXXX@g.us*",
-            );
-            return;
-          }
-
-          await autorizarGrupo(groupId);
-          gruposJaNotificados.delete(groupId);
-
-          await msg.reply(`✅ Grupo *${groupId}* autorizado com sucesso!`);
-          console.log(`✅ Grupo autorizado pelo admin: ${groupId}`);
-        }
-        return; // DMs morrem aqui, não processamos comandos normais no privado
+        await router({
+          ...context,
+          nomeGrupo: "Privado",
+          isGroup: false,
+        });
+        return;
       }
 
       // ─── 2. FILTRO BARATO: É um comando válido? ──────────────────────────────
-      // Isso evita que mensagens comuns ("bom dia", "kkk") batam no banco de dados
       const context = await parseMessage(msg, chat);
       if (!context) return;
 
       // ─── 3. FILTRO CARO: O grupo tem autorização? ────────────────────────────
-      // Só chega aqui se o usuário realmente digitou algo como !lobby, !jogos, etc.
       const groupId = chat.id._serialized;
       const autorizado = await isGrupoAutorizado(groupId);
 
@@ -93,9 +82,7 @@ function initBot() {
         if (ADMIN_WA_ID && !gruposJaNotificados.has(groupId)) {
           gruposJaNotificados.add(groupId);
           try {
-            console.log(
-              `🚨 Grupo não autorizado tentou usar o bot: ${chat.name} | ${groupId}`,
-            );
+            console.log(`🚨 Grupo não autorizado: ${chat.name} | ${groupId}`);
             await client.sendMessage(
               ADMIN_WA_ID,
               `🚨 *Tentativa de uso não autorizado!*\n\n` +
@@ -107,15 +94,24 @@ function initBot() {
             console.error("⚠️ Erro ao notificar admin:", e.message);
           }
         }
-        return; // Morre silenciosamente no grupo não autorizado
+        return;
       }
 
-      // ─── 4. Execução do Comando ──────────────────────────────────────────────
-      await router({ ...context, nomeGrupo: chat.name || chat.id._serialized });
+      // ─── 4. Verifica se é superadmin ─────────────────────────────────────────
+      const isSuperAdmin = await ehSuperAdmin(senderId);
+
+      // ─── 5. Execução do Comando ──────────────────────────────────────────────
+      await router({
+        ...context,
+        nomeGrupo: chat.name || groupId,
+        isGroup: true,
+        isSuperAdmin,
+      });
     } catch (err) {
       console.error("⚠️ Erro ao processar mensagem:", err.message);
     }
   });
+
   if (!ADMIN_WA_ID) {
     console.warn(
       "⚠️  ADMIN_WA_ID não definido! Aprovação de grupos desativada.",

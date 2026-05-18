@@ -22,9 +22,14 @@ async function autorizarGrupo(groupId) {
 
 async function revogarGrupo(groupId) {
   const db = getDb();
-  await db.run("UPDATE grupos SET autorizado = 0 WHERE id_grupo = ?", [
-    groupId,
-  ]);
+  await db.run("UPDATE grupos SET autorizado = 0 WHERE id_grupo = ?", [groupId]);
+}
+
+async function getGruposAutorizados() {
+  const db = getDb();
+  return db.all(
+    "SELECT id_grupo FROM grupos WHERE autorizado = 1",
+  );
 }
 
 // ─── Discord (Link do Grupo) ──────────────────────────────────────────────
@@ -47,11 +52,11 @@ async function setDiscord(groupId, link) {
   );
 }
 
-// ─── Exportando TUDO ──────────────────────────────────────────────────────
 module.exports = {
   isGrupoAutorizado,
   autorizarGrupo,
   revogarGrupo,
+  getGruposAutorizados,
   obterDiscord,
   setDiscord,
 };

@@ -5,8 +5,7 @@ const { gerarListaTexto } = require("../utils/listFormatter");
 const { mencionarJogadores } = require("../utils/mentions");
 const { parseHorario } = require("../utils/timeParser");
 const grupoService = require("../services/grupoService");
-
-const SUPER_ADMIN_ID = process.env.ADMIN_WA_ID;
+const { ehSuperAdmin } = require("../services/adminService");
 
 // Helper para formatar linha de lobby nas listagens
 function formatarLinhaLobby(p) {
@@ -15,9 +14,7 @@ function formatarLinhaLobby(p) {
   return `Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora}\n`;
 }
 
-async function start({ msg, chat, senderId, groupId }) {
-  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
-
+async function start({ msg, chat, senderId, groupId, isSuperAdmin }) {
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
   if (!partida)
     partida = await partidaService.getPartidaDoTitular(groupId, senderId);
@@ -53,8 +50,14 @@ async function start({ msg, chat, senderId, groupId }) {
   await chat.sendMessage(texto);
 }
 
-async function cancelar({ msg, chat, parametro, senderId, groupId }) {
-  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
+async function cancelar({
+  msg,
+  chat,
+  parametro,
+  senderId,
+  groupId,
+  isSuperAdmin,
+}) {
   let partida = null;
 
   if (parametro) {
@@ -75,7 +78,7 @@ async function cancelar({ msg, chat, parametro, senderId, groupId }) {
         "⛔ Só o dono da lobby ou o super admin pode cancelar esta partida.",
       );
   } else {
-    partida = await getPartidaOuErro(msg, groupId, senderId);
+    partida = await getPartidaOuErro(msg, groupId, senderId, isSuperAdmin);
     if (!partida) return;
   }
 
@@ -85,7 +88,14 @@ async function cancelar({ msg, chat, parametro, senderId, groupId }) {
   );
 }
 
-async function horario({ msg, parametro, senderId, groupId, chat }) {
+async function horario({
+  msg,
+  parametro,
+  senderId,
+  groupId,
+  chat,
+  isSuperAdmin,
+}) {
   if (!parametro) {
     await msg.reply(
       "⚠️ Você precisa informar o novo horário. Exemplo: *!horario 22:30*",
@@ -103,13 +113,15 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
 
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
 
-  if (!partida && senderId === SUPER_ADMIN_ID) {
+  if (!partida && isSuperAdmin) {
     const abertas = await partidaService.getPartidasAbertas(groupId);
     if (abertas.length === 1) {
       partida = abertas[0];
     } else if (abertas.length > 1) {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja alterar?\n\n`;
-      abertas.forEach((p) => { texto += formatarLinhaLobby(p); });
+      abertas.forEach((p) => {
+        texto += formatarLinhaLobby(p);
+      });
       await msg.reply(texto);
       return;
     }
@@ -151,7 +163,6 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
     );
     return;
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   await partidaService.atualizarHorario(partida.id, horarioFormatado);
 
@@ -163,8 +174,15 @@ async function horario({ msg, parametro, senderId, groupId, chat }) {
   );
 }
 
-async function titulo({ msg, chat, parametro, senderId, groupId }) {
-  const partida = await getPartidaOuErro(msg, groupId, senderId);
+async function titulo({
+  msg,
+  chat,
+  parametro,
+  senderId,
+  groupId,
+  isSuperAdmin,
+}) {
+  const partida = await getPartidaOuErro(msg, groupId, senderId, isSuperAdmin);
   if (!partida) return;
 
   if (!parametro) {
@@ -182,9 +200,7 @@ async function titulo({ msg, chat, parametro, senderId, groupId }) {
   await chat.sendMessage(texto);
 }
 
-// Helper: busca partida do admin ou responde com erro
-async function getPartidaOuErro(msg, groupId, senderId) {
-  const isSuperAdmin = senderId === SUPER_ADMIN_ID;
+async function getPartidaOuErro(msg, groupId, senderId, isSuperAdmin) {
   let partida = await partidaService.getPartidaDoAdmin(groupId, senderId);
 
   if (!partida && isSuperAdmin) {
@@ -197,7 +213,9 @@ async function getPartidaOuErro(msg, groupId, senderId) {
       partida = abertas[0];
     } else {
       let texto = `⚠️ Há ${abertas.length} lobbies abertas. Qual deseja operar?\n\n`;
-      abertas.forEach((p) => { texto += formatarLinhaLobby(p); });
+      abertas.forEach((p) => {
+        texto += formatarLinhaLobby(p);
+      });
       await msg.reply(texto);
       return null;
     }

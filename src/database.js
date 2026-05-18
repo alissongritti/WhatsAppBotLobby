@@ -43,9 +43,9 @@ async function iniciarBanco() {
 
     CREATE TABLE IF NOT EXISTS jogadores_silenciados (
       id TEXT PRIMARY KEY
-      );
+    );
 
-      CREATE TABLE IF NOT EXISTS grupos (
+    CREATE TABLE IF NOT EXISTS grupos (
       id_grupo TEXT PRIMARY KEY,
       link_discord TEXT
     );
@@ -76,41 +76,32 @@ async function iniciarBanco() {
       chave TEXT PRIMARY KEY,
       valor TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS superadmins (
+      id           TEXT PRIMARY KEY,
+      atribuido_em DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
   `);
 
   await db.exec("PRAGMA foreign_keys = ON;");
 
   try {
     await db.exec("ALTER TABLE partidas ADD COLUMN numero_lobby INTEGER");
-  } catch (e) {
-    // Coluna já existe, ignora
-  }
-
+  } catch (e) {}
   try {
     await db.exec("ALTER TABLE grupos ADD COLUMN autorizado INTEGER DEFAULT 0");
-  } catch (e) {
-    // Coluna já existe, ignora
-  }
-
+  } catch (e) {}
   try {
     await db.exec("ALTER TABLE partidas ADD COLUMN cancelada_em DATETIME");
-  } catch (e) {
-    // Coluna já existe, ignora
-  }
-
+  } catch (e) {}
   try {
     await db.exec(
       "ALTER TABLE partidas ADD COLUMN alarme_disparado INTEGER DEFAULT 0",
     );
-  } catch (e) {
-    // Coluna já existe, ignora
-  }
-
+  } catch (e) {}
   try {
     await db.exec("ALTER TABLE partidas ADD COLUMN data_partida TEXT");
-  } catch (e) {
-    // Coluna já existe, ignora
-  }
+  } catch (e) {}
 
   console.log("📦 Banco de dados SQLite conectado e pronto!");
 }

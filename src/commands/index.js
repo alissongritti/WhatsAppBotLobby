@@ -3,6 +3,8 @@ const playerCmd = require("./player");
 const adminCmd = require("./admin");
 const miscCmd = require("./misc");
 const hltvCmd = require("./hltvCmd");
+const ownerCmd = require("./ownerCommands");
+const grupoService = require("../services/grupoService");
 
 const COMMAND_MAP = {
   "!lobby": lobbyCmd.criarLobby,
@@ -29,6 +31,20 @@ const COMMAND_MAP = {
   "!atualizarjogos": hltvCmd.atualizarJogosAdmin,
 };
 
+// Comandos exclusivos do owner no privado
+const OWNER_COMMAND_MAP = {
+  "!status": ownerCmd.statusGlobal,
+  "!grupos": ownerCmd.listarGrupos,
+  "!revogar": ownerCmd.revogarGrupo,
+  "!cancelar": ownerCmd.cancelarRemoto,
+  "!addadmin": ownerCmd.addAdmin,
+  "!removeadmin": ownerCmd.removeAdmin,
+  "!admins": ownerCmd.listarAdmins,
+  "!logs": ownerCmd.logs,
+  "!ajuda": ownerCmd.ownerHelp,
+  // !aprovar continua no bot.js para manter compatibilidade
+};
+
 async function router(context) {
   try {
     const comando = context?.comando?.trim().toLowerCase();
@@ -38,6 +54,25 @@ async function router(context) {
     console.log(
       `[${new Date().toLocaleTimeString()}] 🤖 Comando: ${comando} | De: ${context.nome} | Grupo: ${nomeGrupo}`,
     );
+
+    // ─── Fluxo de DM (owner) ────────────────────────────────────────────────
+    if (!context.isGroup) {
+      // !aprovar ainda é tratado no bot.js, ignora aqui
+      if (comando === "!aprovar") return;
+
+      const handler = OWNER_COMMAND_MAP[comando];
+      if (handler) {
+        await handler(context);
+      } else {
+        // Comando desconhecido no privado — sugere ajuda silenciosamente
+        await context.msg.reply(
+          `Comando não reconhecido. Use *!ajuda* para ver os comandos disponíveis.`,
+        );
+      }
+      return;
+    }
+
+    // ─── Fluxo normal de grupos ─────────────────────────────────────────────
     const handler = COMMAND_MAP[comando];
     if (handler) {
       await handler(context);

@@ -1,0 +1,237 @@
+const fs = require("fs");
+const path = require("path");
+const partidaService = require("../services/partidaService");
+const grupoService = require("../services/grupoService");
+const adminService = require("../services/adminService");
+const jogadorService = require("../services/jogadorService");
+const { getClient } = require("../bot");
+
+const LOG_OUT   = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
+const LOG_ERROR = path.join(process.env.HOME, ".pm2/logs/bot-cs2-error.log");
+const LINHAS_DEFAULT = 20;
+
+// ─── !status global ───────────────────────────────────────────────────────────
+async function statusGlobal({ msg }) {
+  const client = getClient();
+  const grupos = await grupoService.getGruposAutorizados();
+
+  const linhas = [];
+
+  for (const grupo of grupos) {
+    const abertas = await partidaService.getPartidasAbertas(grupo.id_grupo);
+    if (abertas.length === 0) continue;
+
+    // Tenta pegar o nome do grupo
+    let nomeGrupo = grupo.id_grupo;
+    try {
+      const chat = await client.getChatById(grupo.id_grupo);
+      nomeGrupo = chat.name || grupo.id_grupo;
+    } catch (e) {}
+
+    linhas.push(`*${nomeGrupo}*`);
+    for (const p of abertas) {
+      const titulares = await partidaService.contarTitulares(p.id);
+      const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
+      const infoHora = p.horario ? ` às ${p.horario}` : "";
+      linhas.push(`  • Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora} (${titulares}/${p.max_players})`);
+    }
+  }
+
+  if (linhas.length === 0) {
+    return msg.reply("🟢 Nenhuma lobby aberta em nenhum grupo no momento.");
+  }
+
+  await msg.reply(`📊 *STATUS GLOBAL*\n\n${linhas.join("\n")}`);
+}
+
+// ─── !grupos ──────────────────────────────────────────────────────────────────
+async function listarGrupos({ msg }) {
+  const client = getClient();
+  const grupos = await grupoService.getGruposAutorizados();
+
+  if (grupos.length === 0) {
+    return msg.reply("Nenhum grupo autorizado no momento.");
+  }
+
+  const linhas = [];
+  for (let i = 0; i < grupos.length; i++) {
+    let nome = grupos[i].id_grupo;
+    try {
+      const chat = await client.getChatById(grupos[i].id_grupo);
+      nome = chat.name || grupos[i].id_grupo;
+    } catch (e) {}
+    linhas.push(`${i + 1}. *${nome}*\n   \`${grupos[i].id_grupo}\``);
+  }
+
+  await msg.reply(`📋 *GRUPOS AUTORIZADOS*\n\n${linhas.join("\n\n")}`);
+}
+
+// ─── !revogar [groupId] ───────────────────────────────────────────────────────
+async function revogarGrupo({ msg, parametro }) {
+  if (!parametro) {
+    return msg.reply("⚠️ Informe o ID do grupo. Ex: *!revogar 120363XXX@g.us*");
+  }
+
+  const groupId = parametro.trim();
+  await grupoService.revogarGrupo(groupId);
+  await msg.reply(`🚫 Grupo *${groupId}* revogado com sucesso.`);
+}
+
+// ─── !cancelar [groupId] [numero] ─────────────────────────────────────────────
+async function cancelarRemoto({ msg, parametro }) {
+  if (!parametro) {
+    return msg.reply("⚠️ Use: *!cancelar [groupId] [numero]*\nEx: *!cancelar 120363XXX@g.us 1*");
+  }
+
+  const tokens = parametro.trim().split(" ");
+  if (tokens.length < 2) {
+    return msg.reply("⚠️ Informe o groupId e o número da lobby.\nEx: *!cancelar 120363XXX@g.us 1*");
+  }
+
+  const groupId = tokens[0];
+  const numero = parseInt(tokens[1]);
+
+  if (isNaN(numero)) {
+    return msg.reply("⚠️ Número de lobby inválido.");
+  }
+
+  const partida = await partidaService.getPartidaPorLobby(groupId, numero);
+  if (!partida) {
+    return msg.reply(`⚠️ Lobby #${numero} não encontrada no grupo informado.`);
+  }
+
+  await partidaService.cancelarPartida(partida.id);
+  await msg.reply(`🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`);
+}
+
+// ─── !addadmin [numero] ───────────────────────────────────────────────────────
+async function addAdmin({ msg, parametro }) {
+  if (!parametro) {
+    return msg.reply("⚠️ Informe o número. Ex: *!addadmin 5512999999999*");
+  }
+
+  // Aceita com ou sem @c.us
+  const numero = parametro.trim().replace("@c.us", "");
+  if (!/^\d+$/.test(numero)) {
+    return msg.reply("⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*");
+  }
+
+  const waId = `${numero}@c.us`;
+  await adminService.adicionarSuperAdmin(waId);
+
+  // Tenta pegar o nome do contato
+  let nome = waId;
+  try {
+    const contact = await getClient().getContactById(waId);
+    nome = contact.pushname || contact.name || waId;
+  } catch (e) {}
+
+  await msg.reply(`✅ *${nome}* adicionado como superadmin.`);
+  console.log(`[ADMIN] Superadmin adicionado: ${waId}`);
+}
+
+// ─── !removeadmin [numero] ────────────────────────────────────────────────────
+async function removeAdmin({ msg, parametro }) {
+  if (!parametro) {
+    return msg.reply("⚠️ Informe o número. Ex: *!removeadmin 5512999999999*");
+  }
+
+  const numero = parametro.trim().replace("@c.us", "");
+  if (!/^\d+$/.test(numero)) {
+    return msg.reply("⚠️ Número inválido.");
+  }
+
+  const waId = `${numero}@c.us`;
+  await adminService.removerSuperAdmin(waId);
+  await msg.reply(`🗑️ Superadmin *${waId}* removido.`);
+  console.log(`[ADMIN] Superadmin removido: ${waId}`);
+}
+
+// ─── !admins ──────────────────────────────────────────────────────────────────
+async function listarAdmins({ msg }) {
+  const lista = await adminService.listarSuperAdmins();
+
+  if (lista.length === 0) {
+    return msg.reply("Nenhum superadmin cadastrado além de você.");
+  }
+
+  const linhas = [];
+  for (let i = 0; i < lista.length; i++) {
+    let nome = lista[i].id;
+    try {
+      const contact = await getClient().getContactById(lista[i].id);
+      nome = contact.pushname || contact.name || lista[i].id;
+    } catch (e) {}
+    linhas.push(`${i + 1}. *${nome}* — desde ${lista[i].atribuido_em}`);
+  }
+
+  await msg.reply(`👑 *SUPERADMINS*\n\n${linhas.join("\n")}`);
+}
+
+// ─── !logs [out|error] [linhas] ───────────────────────────────────────────────
+async function logs({ msg, parametro }) {
+  const tokens = (parametro || "").trim().split(" ");
+  const tipo = tokens[0]?.toLowerCase();
+  const linhas = parseInt(tokens[1]) || LINHAS_DEFAULT;
+
+  const logPath = tipo === "error" ? LOG_ERROR : LOG_OUT;
+  const tipoLabel = tipo === "error" ? "error" : "out";
+
+  try {
+    if (!fs.existsSync(logPath)) {
+      return msg.reply(`⚠️ Arquivo de log não encontrado: \`${logPath}\``);
+    }
+
+    const conteudo = fs.readFileSync(logPath, "utf8").split("\n");
+    const ultimas = conteudo.filter(l => l.trim()).slice(-linhas).join("\n");
+
+    if (!ultimas) {
+      return msg.reply("📄 Log vazio.");
+    }
+
+    // WhatsApp tem limite de ~65k chars — trunca se necessário
+    const texto = ultimas.length > 3000
+      ? "...(truncado)\n" + ultimas.slice(-3000)
+      : ultimas;
+
+    await msg.reply(`📄 *LOG ${tipoLabel.toUpperCase()} (últimas ${linhas} linhas)*\n\n\`\`\`\n${texto}\n\`\`\``);
+  } catch (e) {
+    await msg.reply(`❌ Erro ao ler log: ${e.message}`);
+  }
+}
+
+// ─── !ownerhelp ───────────────────────────────────────────────────────────────
+async function ownerHelp({ msg }) {
+  const texto = [
+    "🔐 *COMANDOS DO OWNER*",
+    "",
+    "📊 *Visibilidade:*",
+    "*!status* — lobbies abertas em todos os grupos",
+    "*!grupos* — grupos autorizados com nome e ID",
+    "*!admins* — superadmins cadastrados",
+    "*!logs [out|error] [N]* — últimas N linhas do log (padrão: out, 20 linhas)",
+    "",
+    "⚙️ *Ações remotas:*",
+    "*!aprovar [groupId]* — autoriza um grupo",
+    "*!revogar [groupId]* — revoga um grupo",
+    "*!cancelar [groupId] [numero]* — cancela lobby remotamente",
+    "",
+    "👑 *Gestão de superadmins:*",
+    "*!addadmin [numero]* — adiciona superadmin (ex: 5512999999999)",
+    "*!removeadmin [numero]* — remove superadmin",
+  ].join("\n");
+
+  await msg.reply(texto);
+}
+
+module.exports = {
+  statusGlobal,
+  listarGrupos,
+  revogarGrupo,
+  cancelarRemoto,
+  addAdmin,
+  removeAdmin,
+  listarAdmins,
+  logs,
+  ownerHelp,
+};
