@@ -143,11 +143,9 @@ async function addAdmin({ msg, parametro, client }) {
     return msg.reply("⚠️ Informe o número. Ex: *!addadmin 5512999999999*");
   }
 
-  const numero = parametro.trim().replace("@c.us", "");
-  if (!/^\d+$/.test(numero)) {
-    return msg.reply(
-      "⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*",
-    );
+  const numero = parametro.trim().replace(/\D/g, ""); // sanitiza espaços, traços, parênteses
+  if (!numero) {
+    return msg.reply("⚠️ Número inválido. Ex: *!addadmin 5512999999999*");
   }
 
   const waId = `${numero}@c.us`;
