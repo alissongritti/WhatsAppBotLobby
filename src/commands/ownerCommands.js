@@ -3,25 +3,20 @@ const path = require("path");
 const partidaService = require("../services/partidaService");
 const grupoService = require("../services/grupoService");
 const adminService = require("../services/adminService");
-const jogadorService = require("../services/jogadorService");
-const { getClient } = require("../bot");
 
-const LOG_OUT   = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
+const LOG_OUT = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
 const LOG_ERROR = path.join(process.env.HOME, ".pm2/logs/bot-cs2-error.log");
 const LINHAS_DEFAULT = 20;
 
 // ─── !status global ───────────────────────────────────────────────────────────
-async function statusGlobal({ msg }) {
-  const client = getClient();
+async function statusGlobal({ msg, client }) {
   const grupos = await grupoService.getGruposAutorizados();
-
   const linhas = [];
 
   for (const grupo of grupos) {
     const abertas = await partidaService.getPartidasAbertas(grupo.id_grupo);
     if (abertas.length === 0) continue;
 
-    // Tenta pegar o nome do grupo
     let nomeGrupo = grupo.id_grupo;
     try {
       const chat = await client.getChatById(grupo.id_grupo);
@@ -33,7 +28,9 @@ async function statusGlobal({ msg }) {
       const titulares = await partidaService.contarTitulares(p.id);
       const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
       const infoHora = p.horario ? ` às ${p.horario}` : "";
-      linhas.push(`  • Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora} (${titulares}/${p.max_players})`);
+      linhas.push(
+        `  • Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora} (${titulares}/${p.max_players})`,
+      );
     }
   }
 
@@ -45,8 +42,7 @@ async function statusGlobal({ msg }) {
 }
 
 // ─── !grupos ──────────────────────────────────────────────────────────────────
-async function listarGrupos({ msg }) {
-  const client = getClient();
+async function listarGrupos({ msg, client }) {
   const grupos = await grupoService.getGruposAutorizados();
 
   if (grupos.length === 0) {
@@ -72,20 +68,23 @@ async function revogarGrupo({ msg, parametro }) {
     return msg.reply("⚠️ Informe o ID do grupo. Ex: *!revogar 120363XXX@g.us*");
   }
 
-  const groupId = parametro.trim();
-  await grupoService.revogarGrupo(groupId);
-  await msg.reply(`🚫 Grupo *${groupId}* revogado com sucesso.`);
+  await grupoService.revogarGrupo(parametro.trim());
+  await msg.reply(`🚫 Grupo *${parametro.trim()}* revogado com sucesso.`);
 }
 
 // ─── !cancelar [groupId] [numero] ─────────────────────────────────────────────
 async function cancelarRemoto({ msg, parametro }) {
   if (!parametro) {
-    return msg.reply("⚠️ Use: *!cancelar [groupId] [numero]*\nEx: *!cancelar 120363XXX@g.us 1*");
+    return msg.reply(
+      "⚠️ Use: *!cancelar [groupId] [numero]*\nEx: *!cancelar 120363XXX@g.us 1*",
+    );
   }
 
   const tokens = parametro.trim().split(" ");
   if (tokens.length < 2) {
-    return msg.reply("⚠️ Informe o groupId e o número da lobby.\nEx: *!cancelar 120363XXX@g.us 1*");
+    return msg.reply(
+      "⚠️ Informe o groupId e o número da lobby.\nEx: *!cancelar 120363XXX@g.us 1*",
+    );
   }
 
   const groupId = tokens[0];
@@ -101,28 +100,30 @@ async function cancelarRemoto({ msg, parametro }) {
   }
 
   await partidaService.cancelarPartida(partida.id);
-  await msg.reply(`🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`);
+  await msg.reply(
+    `🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`,
+  );
 }
 
 // ─── !addadmin [numero] ───────────────────────────────────────────────────────
-async function addAdmin({ msg, parametro }) {
+async function addAdmin({ msg, parametro, client }) {
   if (!parametro) {
     return msg.reply("⚠️ Informe o número. Ex: *!addadmin 5512999999999*");
   }
 
-  // Aceita com ou sem @c.us
   const numero = parametro.trim().replace("@c.us", "");
   if (!/^\d+$/.test(numero)) {
-    return msg.reply("⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*");
+    return msg.reply(
+      "⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*",
+    );
   }
 
   const waId = `${numero}@c.us`;
   await adminService.adicionarSuperAdmin(waId);
 
-  // Tenta pegar o nome do contato
   let nome = waId;
   try {
-    const contact = await getClient().getContactById(waId);
+    const contact = await client.getContactById(waId);
     nome = contact.pushname || contact.name || waId;
   } catch (e) {}
 
@@ -148,7 +149,7 @@ async function removeAdmin({ msg, parametro }) {
 }
 
 // ─── !admins ──────────────────────────────────────────────────────────────────
-async function listarAdmins({ msg }) {
+async function listarAdmins({ msg, client }) {
   const lista = await adminService.listarSuperAdmins();
 
   if (lista.length === 0) {
@@ -159,7 +160,7 @@ async function listarAdmins({ msg }) {
   for (let i = 0; i < lista.length; i++) {
     let nome = lista[i].id;
     try {
-      const contact = await getClient().getContactById(lista[i].id);
+      const contact = await client.getContactById(lista[i].id);
       nome = contact.pushname || contact.name || lista[i].id;
     } catch (e) {}
     linhas.push(`${i + 1}. *${nome}* — desde ${lista[i].atribuido_em}`);
@@ -183,24 +184,29 @@ async function logs({ msg, parametro }) {
     }
 
     const conteudo = fs.readFileSync(logPath, "utf8").split("\n");
-    const ultimas = conteudo.filter(l => l.trim()).slice(-linhas).join("\n");
+    const ultimas = conteudo
+      .filter((l) => l.trim())
+      .slice(-linhas)
+      .join("\n");
 
     if (!ultimas) {
       return msg.reply("📄 Log vazio.");
     }
 
-    // WhatsApp tem limite de ~65k chars — trunca se necessário
-    const texto = ultimas.length > 3000
-      ? "...(truncado)\n" + ultimas.slice(-3000)
-      : ultimas;
+    const texto =
+      ultimas.length > 3000
+        ? "...(truncado)\n" + ultimas.slice(-3000)
+        : ultimas;
 
-    await msg.reply(`📄 *LOG ${tipoLabel.toUpperCase()} (últimas ${linhas} linhas)*\n\n\`\`\`\n${texto}\n\`\`\``);
+    await msg.reply(
+      `📄 *LOG ${tipoLabel.toUpperCase()} (últimas ${linhas} linhas)*\n\n\`\`\`\n${texto}\n\`\`\``,
+    );
   } catch (e) {
     await msg.reply(`❌ Erro ao ler log: ${e.message}`);
   }
 }
 
-// ─── !ownerhelp ───────────────────────────────────────────────────────────────
+// ─── !ajuda ───────────────────────────────────────────────────────────────────
 async function ownerHelp({ msg }) {
   const texto = [
     "🔐 *COMANDOS DO OWNER*",

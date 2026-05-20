@@ -25,7 +25,6 @@ const COMMAND_ALIASES = {
   "!start": "!start",
   "!comandos": "!comandos",
   "!help": "!comandos",
-  "!ajuda": "!comandos",
   "!silenciar": "!silenciar",
   "!notificar": "!notificar",
   "!kick": "!kick",
@@ -37,13 +36,20 @@ const COMMAND_ALIASES = {
   "!resultadosbr": "!resultadosbr",
   "!novidades": "!novidades",
   "!atualizarjogos": "!atualizarjogos",
-  // "!resumo": "!resumo",
+  // Comandos exclusivos do owner (DM) — precisam estar aqui para o parse funcionar
+  "!grupos": "!grupos",
+  "!revogar": "!revogar",
+  "!addadmin": "!addadmin",
+  "!removeadmin": "!removeadmin",
+  "!admins": "!admins",
+  "!logs": "!logs",
+  "!ajuda": "!ajuda", // NÃO mapeia para !comandos — owner usa !ajuda no privado
+  "!aprovar": "!aprovar",
 };
 
 async function parseMessage(msg, chat) {
   const textoLower = msg.body.toLowerCase().trim();
 
-  // Encontra qual alias bate com o início da mensagem
   const aliasEncontrado = Object.keys(COMMAND_ALIASES)
     .sort((a, b) => b.length - a.length) // mais longos primeiro
     .find((alias) => textoLower.startsWith(alias));
@@ -52,7 +58,6 @@ async function parseMessage(msg, chat) {
   const comando = COMMAND_ALIASES[aliasEncontrado];
   let parametro = msg.body.substring(aliasEncontrado.length).trim();
 
-  // Limpa menções do parâmetro para comandos que usam título
   if (["!lobby", "!mix", "!titulo"].includes(comando) && parametro) {
     parametro = await resolverMencoes(parametro, msg);
   }

@@ -57,7 +57,7 @@ function initBot() {
 
       // ─── 1. DM — só o owner tem acesso ──────────────────────────────────────
       if (!chat.isGroup) {
-        if (senderId !== ADMIN_WA_ID) return; // Silêncio absoluto para qualquer outro
+        if (senderId !== ADMIN_WA_ID) return; // Silêncio absoluto
 
         const context = await parseMessage(msg, chat);
         if (!context) return;
@@ -66,6 +66,7 @@ function initBot() {
           ...context,
           nomeGrupo: "Privado",
           isGroup: false,
+          client, // passa o client para evitar referência circular no ownerCommands
         });
         return;
       }
@@ -106,6 +107,7 @@ function initBot() {
         nomeGrupo: chat.name || groupId,
         isGroup: true,
         isSuperAdmin,
+        client,
       });
     } catch (err) {
       console.error("⚠️ Erro ao processar mensagem:", err.message);

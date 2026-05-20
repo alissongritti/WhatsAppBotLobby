@@ -42,8 +42,22 @@ const OWNER_COMMAND_MAP = {
   "!admins": ownerCmd.listarAdmins,
   "!logs": ownerCmd.logs,
   "!ajuda": ownerCmd.ownerHelp,
-  // !aprovar continua no bot.js para manter compatibilidade
+  "!aprovar": aprovarGrupo, // mantido aqui para centralizar tudo no router
 };
+
+// Função de aprovação inline — evita duplicar no bot.js
+async function aprovarGrupo({ msg, parametro }) {
+  if (!parametro) {
+    return msg.reply(
+      "⚠️ Informe o ID do grupo. Ex: *!aprovar 120363XXXXXXXXXX@g.us*",
+    );
+  }
+
+  const groupId = parametro.trim();
+  await grupoService.autorizarGrupo(groupId);
+  await msg.reply(`✅ Grupo *${groupId}* autorizado com sucesso!`);
+  console.log(`✅ Grupo autorizado pelo owner: ${groupId}`);
+}
 
 async function router(context) {
   try {
@@ -57,16 +71,12 @@ async function router(context) {
 
     // ─── Fluxo de DM (owner) ────────────────────────────────────────────────
     if (!context.isGroup) {
-      // !aprovar ainda é tratado no bot.js, ignora aqui
-      if (comando === "!aprovar") return;
-
       const handler = OWNER_COMMAND_MAP[comando];
       if (handler) {
         await handler(context);
       } else {
-        // Comando desconhecido no privado — sugere ajuda silenciosamente
         await context.msg.reply(
-          `Comando não reconhecido. Use *!ajuda* para ver os comandos disponíveis.`,
+          "Comando não reconhecido. Use *!ajuda* para ver os comandos disponíveis.",
         );
       }
       return;
