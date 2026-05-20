@@ -4,11 +4,10 @@ const partidaService = require("../services/partidaService");
 const grupoService = require("../services/grupoService");
 const adminService = require("../services/adminService");
 
-const LOG_OUT = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
+const LOG_OUT   = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
 const LOG_ERROR = path.join(process.env.HOME, ".pm2/logs/bot-cs2-error.log");
 const LINHAS_DEFAULT = 20;
 
-// ─── !status global ───────────────────────────────────────────────────────────
 async function statusGlobal({ msg, client }) {
   const grupos = await grupoService.getGruposAutorizados();
   const linhas = [];
@@ -28,9 +27,7 @@ async function statusGlobal({ msg, client }) {
       const titulares = await partidaService.contarTitulares(p.id);
       const infoData = p.data_partida ? ` 📅 ${p.data_partida}` : "";
       const infoHora = p.horario ? ` às ${p.horario}` : "";
-      linhas.push(
-        `  • Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora} (${titulares}/${p.max_players})`,
-      );
+      linhas.push(`  • Lobby #${p.numero_lobby} - ${p.titulo}${infoData}${infoHora} (${titulares}/${p.max_players})`);
     }
   }
 
@@ -41,7 +38,6 @@ async function statusGlobal({ msg, client }) {
   await msg.reply(`📊 *STATUS GLOBAL*\n\n${linhas.join("\n")}`);
 }
 
-// ─── !grupos ──────────────────────────────────────────────────────────────────
 async function listarGrupos({ msg, client }) {
   const grupos = await grupoService.getGruposAutorizados();
 
@@ -56,13 +52,12 @@ async function listarGrupos({ msg, client }) {
       const chat = await client.getChatById(grupos[i].id_grupo);
       nome = chat.name || grupos[i].id_grupo;
     } catch (e) {}
-    linhas.push(`${i + 1}. *${nome}*\n   \`${grupos[i].id_grupo}\``);
+    linhas.push(`${i + 1}. *${nome}*`);
   }
 
-  await msg.reply(`📋 *GRUPOS AUTORIZADOS*\n\n${linhas.join("\n\n")}`);
+  await msg.reply(`📋 *GRUPOS AUTORIZADOS*\n\n${linhas.join("\n")}\n\nUse o número para cancelar: *!cancelar 2 1*`);
 }
 
-// ─── !revogar [groupId] ───────────────────────────────────────────────────────
 async function revogarGrupo({ msg, parametro }) {
   if (!parametro) {
     return msg.reply("⚠️ Informe o ID do grupo. Ex: *!revogar 120363XXX@g.us*");
@@ -72,26 +67,43 @@ async function revogarGrupo({ msg, parametro }) {
   await msg.reply(`🚫 Grupo *${parametro.trim()}* revogado com sucesso.`);
 }
 
-// ─── !cancelar [groupId] [numero] ─────────────────────────────────────────────
+// Aceita numero sequencial do !grupos (ex: !cancelar 2 1)
+// ou ID completo (ex: !cancelar 120363XXX@g.us 1)
 async function cancelarRemoto({ msg, parametro }) {
   if (!parametro) {
     return msg.reply(
-      "⚠️ Use: *!cancelar [groupId] [numero]*\nEx: *!cancelar 120363XXX@g.us 1*",
+      "⚠️ Use: *!cancelar [#grupo] [lobby]*\n" +
+      "Ex: *!cancelar 2 1* (grupo #2 da lista, lobby #1)\n" +
+      "Use *!grupos* para ver os números"
     );
   }
 
   const tokens = parametro.trim().split(" ");
   if (tokens.length < 2) {
     return msg.reply(
-      "⚠️ Informe o groupId e o número da lobby.\nEx: *!cancelar 120363XXX@g.us 1*",
+      "⚠️ Informe o grupo e o número da lobby.\n" +
+      "Ex: *!cancelar 2 1* — use *!grupos* para ver os números"
     );
   }
 
-  const groupId = tokens[0];
+  const grupoToken = tokens[0];
   const numero = parseInt(tokens[1]);
 
   if (isNaN(numero)) {
     return msg.reply("⚠️ Número de lobby inválido.");
+  }
+
+  // Resolve groupId: número sequencial ou ID completo
+  let groupId = grupoToken;
+  const indice = parseInt(grupoToken);
+
+  if (!isNaN(indice) && !grupoToken.includes("@")) {
+    const grupos = await grupoService.getGruposAutorizados();
+    const grupo = grupos[indice - 1];
+    if (!grupo) {
+      return msg.reply(`⚠️ Grupo #${indice} não encontrado. Use *!grupos* para ver a lista.`);
+    }
+    groupId = grupo.id_grupo;
   }
 
   const partida = await partidaService.getPartidaPorLobby(groupId, numero);
@@ -100,12 +112,9 @@ async function cancelarRemoto({ msg, parametro }) {
   }
 
   await partidaService.cancelarPartida(partida.id);
-  await msg.reply(
-    `🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`,
-  );
+  await msg.reply(`🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`);
 }
 
-// ─── !addadmin [numero] ───────────────────────────────────────────────────────
 async function addAdmin({ msg, parametro, client }) {
   if (!parametro) {
     return msg.reply("⚠️ Informe o número. Ex: *!addadmin 5512999999999*");
@@ -113,9 +122,7 @@ async function addAdmin({ msg, parametro, client }) {
 
   const numero = parametro.trim().replace("@c.us", "");
   if (!/^\d+$/.test(numero)) {
-    return msg.reply(
-      "⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*",
-    );
+    return msg.reply("⚠️ Número inválido. Use apenas dígitos. Ex: *!addadmin 5512999999999*");
   }
 
   const waId = `${numero}@c.us`;
@@ -131,7 +138,6 @@ async function addAdmin({ msg, parametro, client }) {
   console.log(`[ADMIN] Superadmin adicionado: ${waId}`);
 }
 
-// ─── !removeadmin [numero] ────────────────────────────────────────────────────
 async function removeAdmin({ msg, parametro }) {
   if (!parametro) {
     return msg.reply("⚠️ Informe o número. Ex: *!removeadmin 5512999999999*");
@@ -148,7 +154,6 @@ async function removeAdmin({ msg, parametro }) {
   console.log(`[ADMIN] Superadmin removido: ${waId}`);
 }
 
-// ─── !admins ──────────────────────────────────────────────────────────────────
 async function listarAdmins({ msg, client }) {
   const lista = await adminService.listarSuperAdmins();
 
@@ -169,7 +174,6 @@ async function listarAdmins({ msg, client }) {
   await msg.reply(`👑 *SUPERADMINS*\n\n${linhas.join("\n")}`);
 }
 
-// ─── !logs [out|error] [linhas] ───────────────────────────────────────────────
 async function logs({ msg, parametro }) {
   const tokens = (parametro || "").trim().split(" ");
   const tipo = tokens[0]?.toLowerCase();
@@ -180,50 +184,43 @@ async function logs({ msg, parametro }) {
 
   try {
     if (!fs.existsSync(logPath)) {
-      return msg.reply(`⚠️ Arquivo de log não encontrado: \`${logPath}\``);
+      return msg.reply(`⚠️ Arquivo de log não encontrado: ${logPath}`);
     }
 
     const conteudo = fs.readFileSync(logPath, "utf8").split("\n");
-    const ultimas = conteudo
-      .filter((l) => l.trim())
-      .slice(-linhas)
-      .join("\n");
+    const ultimas = conteudo.filter(l => l.trim()).slice(-linhas).join("\n");
 
     if (!ultimas) {
       return msg.reply("📄 Log vazio.");
     }
 
-    const texto =
-      ultimas.length > 3000
-        ? "...(truncado)\n" + ultimas.slice(-3000)
-        : ultimas;
+    const texto = ultimas.length > 3000
+      ? "...(truncado)\n" + ultimas.slice(-3000)
+      : ultimas;
 
-    await msg.reply(
-      `📄 *LOG ${tipoLabel.toUpperCase()} (últimas ${linhas} linhas)*\n\n\`\`\`\n${texto}\n\`\`\``,
-    );
+    await msg.reply(`📄 *LOG ${tipoLabel.toUpperCase()} (últimas ${linhas} linhas)*\n\n${texto}`);
   } catch (e) {
     await msg.reply(`❌ Erro ao ler log: ${e.message}`);
   }
 }
 
-// ─── !ajuda ───────────────────────────────────────────────────────────────────
 async function ownerHelp({ msg }) {
   const texto = [
     "🔐 *COMANDOS DO OWNER*",
     "",
     "📊 *Visibilidade:*",
     "*!status* — lobbies abertas em todos os grupos",
-    "*!grupos* — grupos autorizados com nome e ID",
+    "*!grupos* — grupos autorizados numerados",
     "*!admins* — superadmins cadastrados",
-    "*!logs [out|error] [N]* — últimas N linhas do log (padrão: out, 20 linhas)",
+    "*!logs [out|error] [N]* — últimas N linhas do log",
     "",
     "⚙️ *Ações remotas:*",
     "*!aprovar [groupId]* — autoriza um grupo",
     "*!revogar [groupId]* — revoga um grupo",
-    "*!cancelar [groupId] [numero]* — cancela lobby remotamente",
+    "*!cancelar [#grupo] [lobby]* — cancela lobby (ex: !cancelar 2 1)",
     "",
     "👑 *Gestão de superadmins:*",
-    "*!addadmin [numero]* — adiciona superadmin (ex: 5512999999999)",
+    "*!addadmin [numero]* — adiciona superadmin",
     "*!removeadmin [numero]* — remove superadmin",
   ].join("\n");
 
