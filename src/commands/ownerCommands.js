@@ -74,7 +74,7 @@ async function revogarGrupo({ msg, parametro }) {
 
 // Aceita numero sequencial do !grupos (ex: !cancelar 2 1)
 // ou ID completo (ex: !cancelar 120363XXX@g.us 1)
-async function cancelarRemoto({ msg, parametro }) {
+async function cancelarRemoto({ msg, parametro, client }) {
   if (!parametro) {
     return msg.reply(
       "⚠️ Use: *!cancelar [#grupo] [lobby]*\n" +
@@ -119,8 +119,22 @@ async function cancelarRemoto({ msg, parametro }) {
   }
 
   await partidaService.cancelarPartida(partida.id);
+
+  // Notifica no grupo para a galera saber
+  try {
+    await client.sendMessage(
+      groupId,
+      `🛑 *Partida #${partida.numero_lobby} cancelada pelo administrador.* A fila foi resetada!`,
+    );
+  } catch (e) {
+    console.error(
+      "⚠️ Erro ao notificar grupo sobre cancelamento remoto:",
+      e.message,
+    );
+  }
+
   await msg.reply(
-    `🛑 Lobby #${numero} (*${partida.titulo}*) cancelada remotamente.`,
+    `🛑 Lobby #${numero} (*${partida.titulo}*) cancelada e grupo notificado.`,
   );
 }
 
