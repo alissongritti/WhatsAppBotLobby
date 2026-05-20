@@ -85,6 +85,59 @@ O bot rastreia arregadas com uma lógica precisa: a penalidade só é registrada
 
 ---
 
+## 🔐 Administração — Owner & Superadmins
+
+O bot possui um sistema de administração em dois níveis, controlado via DM com o owner.
+
+### Hierarquia de permissões
+
+| Nível              | Quem                       | Onde age               | Poderes                                                                        |
+| :----------------- | :------------------------- | :--------------------- | :----------------------------------------------------------------------------- |
+| **Owner**          | `ADMIN_WA_ID` no `.env`    | DM + todos os grupos   | Acesso total                                                                   |
+| **Superadmin**     | Cadastrado via `!addadmin` | Apenas nos grupos      | Moderar qualquer lobby (`!cancelar`, `!start`, `!horario`, `!titulo`, `!kick`) |
+| **Admin de grupo** | Admin do WhatsApp          | Apenas o próprio grupo | `!kick`                                                                        |
+
+### Blindagem de segurança
+
+O canal de DM é exclusivo do owner. Qualquer outro número que tente interagir no privado é ignorado **silenciosamente** — sem resposta, sem erro. Mesmo que alguém descubra os comandos pelo código-fonte, sem ser o número configurado em `ADMIN_WA_ID` o bot não reage.
+
+### Comandos disponíveis no privado (`!ajuda`)
+
+**Visibilidade:**
+
+| Comando                  | Descrição                                                |
+| :----------------------- | :------------------------------------------------------- |
+| `!status`                | Lobbies abertas em todos os grupos com número sequencial |
+| `!grupos`                | Lista numerada dos grupos autorizados                    |
+| `!admins`                | Superadmins cadastrados com data de atribuição           |
+| `!logs [out\|error] [N]` | Últimas N linhas do log do PM2 (padrão: out, 20 linhas)  |
+
+**Ações remotas:**
+
+| Comando                      | Descrição                                                          |
+| :--------------------------- | :----------------------------------------------------------------- |
+| `!aprovar [groupId]`         | Autoriza um grupo                                                  |
+| `!revogar [groupId]`         | Revoga autorização de um grupo                                     |
+| `!cancelar [#grupo] [lobby]` | Cancela lobby remotamente e notifica o grupo (ex: `!cancelar 2 1`) |
+
+**Gestão de superadmins:**
+
+| Comando                 | Descrição                                           |
+| :---------------------- | :-------------------------------------------------- |
+| `!addadmin [numero]`    | Adiciona superadmin (ex: `!addadmin 5512999999999`) |
+| `!removeadmin [numero]` | Remove superadmin                                   |
+
+> **Dica de uso:** mande `!status` para ver qual grupo e lobby precisa ser cancelada, e use o número sequencial diretamente: `!cancelar 2 1`.
+
+### Configuração no `.env`
+
+```env
+ADMIN_WA_ID=5512999999999@c.us   # Seu número com DDI+DDD, sem espaços
+GEMINI_API_KEY=sua_chave_aqui
+```
+
+---
+
 ## 📜 Comandos Principais
 
 | Comando                          | Descrição                                                |
@@ -208,6 +261,59 @@ The bot polls the official Valve RSS feed every 30 minutes. When an update is de
 ### 🏃 Time-Aware Choke Tracking
 
 The bot tracks rage-quits with a precise rule: a penalty is only recorded when a player leaves with **less than 1 hour** until match time **and** the lobby already has at least half its starters confirmed. Leaving early or abandoning an empty lobby doesn't count — only real last-minute chokes do.
+
+---
+
+## 🔐 Administration — Owner & Superadmins
+
+The bot includes a two-tier administration system controlled via private message with the owner.
+
+### Permission hierarchy
+
+| Level           | Who                        | Scope           | Powers                                                                     |
+| :-------------- | :------------------------- | :-------------- | :------------------------------------------------------------------------- |
+| **Owner**       | `ADMIN_WA_ID` in `.env`    | DM + all groups | Full access                                                                |
+| **Superadmin**  | Registered via `!addadmin` | Groups only     | Moderate any lobby (`!cancelar`, `!start`, `!horario`, `!titulo`, `!kick`) |
+| **Group admin** | WhatsApp group admin       | Own group only  | `!kick`                                                                    |
+
+### Security model
+
+The DM channel is exclusively for the owner. Any other number interacting in private is ignored **silently** — no response, no error. Even if someone discovers the commands from the source code, without being the number configured in `ADMIN_WA_ID` the bot won't react.
+
+### Owner commands (`!ajuda`)
+
+**Visibility:**
+
+| Command                  | Description                                                  |
+| :----------------------- | :----------------------------------------------------------- |
+| `!status`                | Open lobbies across all groups with sequential group numbers |
+| `!grupos`                | Numbered list of authorized groups                           |
+| `!admins`                | Registered superadmins with assignment date                  |
+| `!logs [out\|error] [N]` | Last N lines from PM2 log (default: out, 20 lines)           |
+
+**Remote actions:**
+
+| Command                      | Description                                                       |
+| :--------------------------- | :---------------------------------------------------------------- |
+| `!aprovar [groupId]`         | Authorize a group                                                 |
+| `!revogar [groupId]`         | Revoke a group's authorization                                    |
+| `!cancelar [#group] [lobby]` | Cancel lobby remotely and notify the group (e.g. `!cancelar 2 1`) |
+
+**Superadmin management:**
+
+| Command                 | Description                                     |
+| :---------------------- | :---------------------------------------------- |
+| `!addadmin [number]`    | Add superadmin (e.g. `!addadmin 5512999999999`) |
+| `!removeadmin [number]` | Remove superadmin                               |
+
+> **Workflow tip:** send `!status` to see which group and lobby needs action, then use the sequential number directly: `!cancelar 2 1`.
+
+### `.env` configuration
+
+```env
+ADMIN_WA_ID=5512999999999@c.us   # Your number with country+area code, no spaces
+GEMINI_API_KEY=your_key_here
+```
 
 ---
 
