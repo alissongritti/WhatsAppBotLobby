@@ -175,20 +175,44 @@ async function getTitularesComId(partidaId) {
  */
 async function limparPartidasEsquecidas() {
   const db = getDb();
-  const hoje = dataDeHoje();
+  const hoje = dataDeHoje(); // Retorna "DD/MM"
   const agora = new Date();
   const horaAtual =
     agora.getHours().toString().padStart(2, "0") +
     ":" +
     agora.getMinutes().toString().padStart(2, "0");
 
-  await db.run(
-    `UPDATE partidas SET status = 'CANCELADA'
-     WHERE status = 'ABERTA'
-     AND data_partida = ?
-     AND (horario IS NULL OR horario < ?)`,
-    [hoje, horaAtual],
+  // Buscamos todas as partidas abertas para processar a lógica de data com segurança
+  const partidasAtivas = await db.all(
+    "SELECT id, data_partida, horario FROM partidas WHERE status = 'ABERTA'",
   );
+
+  const idsParaCancelar = [];
+
+  for (const p of partidasAtivas) {
+    // Caso 1: A partida é de hoje e o horário já passou
+    if (p.data_partida === hoje) {
+      if (!p.horario || p.horario < horaAtual) {
+        idsParaCancelar.push(p.id);
+      }
+    } 
+    // Caso 2: A partida é de um dia diferente de hoje.
+    // Usamos a sua função 'dataEFutura' invertida! Se não é hoje e não é futura, com certeza ficou no passado.
+    else if (!dataEFutura(p.data_partida)) {
+      idsParaCancelar.push(p.id);
+    }
+  }
+
+  // Se houver lobbies obsoletas, cancela todas de uma vez só
+  if (idsParaCancelar.length > 0) {
+    const placeholders = idsParaCancelar.map(() => "?").join(",");
+    await db.run(
+      `UPDATE partidas SET status = 'CANCELADA', cancelada_em = datetime('now', 'localtime') 
+       WHERE id IN (${placeholders})`,
+      idsParaCancelar,
+    );
+    console.log(`[VASSOURA] 🧹 ${idsParaCancelar.length} lobbies antigas foram canceladas por inatividade.`);
+  }
 }
 
 /**
