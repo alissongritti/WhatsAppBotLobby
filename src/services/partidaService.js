@@ -1,5 +1,5 @@
 const { getDb } = require("../database");
-const { dataDeHoje } = require("../utils/timeParser");
+const { dataDeHoje, dataEFutura } = require("../utils/timeParser");
 
 async function getPartidasAbertas(groupId) {
   const db = getDb();
@@ -195,7 +195,7 @@ async function limparPartidasEsquecidas() {
       if (!p.horario || p.horario < horaAtual) {
         idsParaCancelar.push(p.id);
       }
-    } 
+    }
     // Caso 2: A partida é de um dia diferente de hoje.
     // Usamos a sua função 'dataEFutura' invertida! Se não é hoje e não é futura, com certeza ficou no passado.
     else if (!dataEFutura(p.data_partida)) {
@@ -211,7 +211,9 @@ async function limparPartidasEsquecidas() {
        WHERE id IN (${placeholders})`,
       idsParaCancelar,
     );
-    console.log(`[VASSOURA] 🧹 ${idsParaCancelar.length} lobbies antigas foram canceladas por inatividade.`);
+    console.log(
+      `[VASSOURA] 🧹 ${idsParaCancelar.length} lobbies antigas foram canceladas por inatividade.`,
+    );
   }
 }
 
