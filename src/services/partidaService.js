@@ -1,5 +1,5 @@
 const { getDb } = require("../database");
-const { dataDeHoje, dataEFutura } = require("../utils/timeParser");
+const { dataDeHoje } = require("../utils/timeParser");
 
 async function getPartidasAbertas(groupId) {
   const db = getDb();
@@ -170,19 +170,34 @@ async function getTitularesComId(partidaId) {
 }
 
 /**
- * Vassoura: cancela lobbies do dia cujo horário já passou.
- * Lobbies de dias futuros são preservadas naturalmente (data_partida > hoje).
+ * Converte "DD/MM" para um objeto Date no ano corrente.
+ * NÃO faz virada de ano — se passou, passou.
+ */
+function ddmmParaDate(ddmm) {
+  const [dia, mes] = ddmm.split("/").map(Number);
+  const ano = new Date().getFullYear();
+  return new Date(ano, mes - 1, dia);
+}
+
+/**
+ * Vassoura: cancela lobbies abertas cujo dia/horário já passou.
+ *
+ * Regras:
+ * - data_partida < hoje (dia anterior) → cancela sempre
+ * - data_partida = hoje + horario já passou → cancela
+ * - data_partida > hoje → preserva (agendada futura)
  */
 async function limparPartidasEsquecidas() {
   const db = getDb();
-  const hoje = dataDeHoje(); // Retorna "DD/MM"
+  const hoje = dataDeHoje(); // "DD/MM"
   const agora = new Date();
   const horaAtual =
     agora.getHours().toString().padStart(2, "0") +
     ":" +
     agora.getMinutes().toString().padStart(2, "0");
 
-  // Buscamos todas as partidas abertas para processar a lógica de data com segurança
+  const hojeDate = ddmmParaDate(hoje);
+
   const partidasAtivas = await db.all(
     "SELECT id, data_partida, horario FROM partidas WHERE status = 'ABERTA'",
   );
@@ -190,41 +205,35 @@ async function limparPartidasEsquecidas() {
   const idsParaCancelar = [];
 
   for (const p of partidasAtivas) {
-    // Caso 1: A partida é de hoje e o horário já passou
-    if (p.data_partida === hoje) {
+    const dataPartidaDate = ddmmParaDate(p.data_partida);
+
+    if (dataPartidaDate < hojeDate) {
+      // Dia anterior — cancela independente do horário
+      idsParaCancelar.push(p.id);
+    } else if (dataPartidaDate.getTime() === hojeDate.getTime()) {
+      // Mesmo dia — só cancela se o horário já passou ou não tem horário
       if (!p.horario || p.horario < horaAtual) {
         idsParaCancelar.push(p.id);
       }
     }
-    // Caso 2: A partida é de um dia diferente de hoje.
-    // Usamos a sua função 'dataEFutura' invertida! Se não é hoje e não é futura, com certeza ficou no passado.
-    else if (!dataEFutura(p.data_partida)) {
-      idsParaCancelar.push(p.id);
-    }
+    // dataPartidaDate > hojeDate → futuro, preserva
   }
 
-  // Se houver lobbies obsoletas, cancela todas de uma vez só
   if (idsParaCancelar.length > 0) {
     const placeholders = idsParaCancelar.map(() => "?").join(",");
     await db.run(
-      `UPDATE partidas SET status = 'CANCELADA', cancelada_em = datetime('now', 'localtime') 
+      `UPDATE partidas SET status = 'CANCELADA', cancelada_em = datetime('now', 'localtime')
        WHERE id IN (${placeholders})`,
       idsParaCancelar,
     );
     console.log(
-      `[VASSOURA] 🧹 ${idsParaCancelar.length} lobbies antigas foram canceladas por inatividade.`,
+      `[VASSOURA] 🧹 ${idsParaCancelar.length} lobbies antigas canceladas.`,
     );
   }
 }
 
 /**
  * Verifica conflito de horário entre partidas do mesmo jogador no mesmo dia.
- *
- * @param {string} groupId
- * @param {string} senderId
- * @param {string} novoHorarioStr - "HH:mm"
- * @param {string} novaData       - "DD/MM" — sempre normalizado pelo lobby.js
- * @param {number|null} partidaIdAExcluir - ID da própria partida (edição de horário)
  */
 async function verificarConflitoDeHorario(
   groupId,
@@ -254,12 +263,8 @@ async function verificarConflitoDeHorario(
   const minNovo = horaParaMin(novoHorarioStr);
 
   for (const p of partidasAtivas) {
-    // Ignora a própria partida durante edição de horário
     if (partidaIdAExcluir && p.id === partidaIdAExcluir) continue;
-
     if (!p.horario) return p;
-
-    // Datas diferentes → sem conflito
     if (novaData !== p.data_partida) continue;
 
     const minExistente = horaParaMin(p.horario);

@@ -1,5 +1,6 @@
 const partidaService = require("../services/partidaService");
 const jogadorService = require("../services/jogadorService");
+const statsService = require("../services/statsService");
 const { mencionarJogadores } = require("./mentions");
 const { getDb } = require("../database");
 const {
@@ -27,7 +28,6 @@ function iniciarCronJobs(client) {
         ":" +
         agora.getMinutes().toString().padStart(2, "0");
 
-      // "DD/MM" de hoje
       const dataHoje =
         agora.getDate().toString().padStart(2, "0") +
         "/" +
@@ -84,12 +84,7 @@ function iniciarCronJobs(client) {
       // ⏰ ALARME DA HORA H (considera data_partida)
       // ---------------------------------------------------------
       for (const partida of abertas) {
-        // Se a partida tem data_partida e não é hoje → pula
-        if (partida.data_partida && partida.data_partida !== dataHoje) {
-          continue;
-        }
-
-        // Só dispara quando o horário chegou (igual ao comportamento anterior)
+        if (partida.data_partida && partida.data_partida !== dataHoje) continue;
         if (partida.horario > horaAtual) continue;
 
         const idDoGrupo = partida.grupo_id || partida.group_id;
@@ -104,32 +99,44 @@ function iniciarCronJobs(client) {
 
         const chat = await client.getChatById(idDoGrupo);
         const titulares = await jogadorService.getTitulares(partida.id);
+        const limiteJogadores = partida.tipo === "MIX" ? 10 : 5;
+        const tipo = partida.tipo;
 
-        if (titulares.length > 0) {
-          const mentionsIds = titulares.map((t) => t.jogador_id);
-          const limiteJogadores = partida.tipo === "MIX" ? 10 : 5;
-          const tipo = partida.tipo;
+        const mentionsIds = titulares.map((t) => t.jogador_id);
 
-          let mensagem;
-          if (titulares.length >= limiteJogadores) {
-            mensagem =
-              `⏰ *TÁ NA HORA!* ⏰\n` +
-              `O ${tipo} #${partida.numero_lobby} (${partida.titulo}) estava marcado para as *${partida.horario}*!\n\n` +
-              `Bora pro jogo, titulares! Mandem *!start* para fechar a sala.`;
-          } else {
-            mensagem =
-              `⏰ *Chegou o horário do ${tipo} #${partida.numero_lobby}, mas ainda faltam jogadores!* ` +
-              `(${titulares.length}/${limiteJogadores})\n\n` +
-              `Mandem *!start* para jogar assim mesmo ou *!cancelar* para liberar a fila.`;
-          }
+        if (titulares.length >= limiteJogadores) {
+          // ─── START AUTOMÁTICO ────────────────────────────────────────────
+          const ids = titulares.map((t) => t.jogador_id);
+          await partidaService.concluirPartida(partida.id);
+          await statsService.registrarPartidaJogada(ids);
+
+          const mensagem =
+            `🚀 *PARTIDA INICIADA AUTOMATICAMENTE!* 🚀\n\n` +
+            `O ${tipo} #${partida.numero_lobby} (*${partida.titulo}*) estava marcado para as *${partida.horario}* e o time estava completo!\n\n` +
+            `📈 *+1 partida contabilizada para todos os titulares!*\n` +
+            `🎮 Bora pro jogo, galera!`;
 
           await mencionarJogadores(chat, mensagem, mentionsIds);
+          console.log(
+            `🚀 Start automático: partida #${partida.numero_lobby} (${partida.horario}) — ${titulares.length}/${limiteJogadores}`,
+          );
+        } else {
+          // ─── TIME INCOMPLETO — aviso mais chamativo ───────────────────────
+          const mensagem =
+            `⏰ *HORA H!* ⏰\n\n` +
+            `O ${tipo} #${partida.numero_lobby} (*${partida.titulo}*) era pras *${partida.horario}* mas o time ainda tá incompleto! ` +
+            `(${titulares.length}/${limiteJogadores})\n\n` +
+            `⚠️ *A lobby não fecha sozinha quando está incompleta.*\n\n` +
+            `👉 *!start* — jogar assim mesmo e fechar a sala\n` +
+            `👉 *!cancelar* — liberar a fila`;
+
+          await mencionarJogadores(chat, mensagem, mentionsIds);
+          console.log(
+            `⏰ Alarme disparado (incompleto): partida #${partida.numero_lobby} (${titulares.length}/${limiteJogadores})`,
+          );
         }
 
         await partidaService.marcarAlarmeDisparado(partida.id);
-        console.log(
-          `⏰ Alarme disparado para partida #${partida.numero_lobby} (${partida.data_partida ?? "hoje"} ${partida.horario})`,
-        );
       }
     } catch (err) {
       console.error("⚠️ Erro no Cron Job de Alarme:", err.message);
