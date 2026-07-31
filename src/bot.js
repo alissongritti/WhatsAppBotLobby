@@ -103,7 +103,7 @@ function initBot() {
       const context = await parseMessage(msg, chat);
       if (!context) return; // Não é comando (ex: conversa normal do grupo)
 
-      // ─── 3. FILTRO CARO: O grupo tem autorização? (DESATIVADO TEMPORARIAMENTE) ─
+      // ─── 3. FILTRO CARO: O grupo tem autorização? ───────────────────────────
       const autorizado = await isGrupoAutorizado(groupId);
 
       if (!autorizado) {
@@ -114,12 +114,11 @@ function initBot() {
         if (ADMIN_WA_ID && !gruposJaNotificados.has(groupId)) {
           gruposJaNotificados.add(groupId);
           try {
-            // Sanitiza o número do Admin para evitar o erro 'No LID for user'
-            const rawAdmin = ADMIN_WA_ID.replace(/\D/g, "");
-            const adminFormatted = rawAdmin ? `${rawAdmin}@c.us` : ADMIN_WA_ID;
+            // Usa o JID de envio para notificar na DM do Admin
+            const adminDestination = "5512997526116@c.us";
 
             await client.sendMessage(
-              adminFormatted,
+              adminDestination,
               `🚨 *Tentativa de uso não autorizado!*\n\n` +
                 `📍 *Grupo:* ${chat.name || "Sem Nome"}\n` +
                 `🔑 *ID:* \`${groupId}\`\n\n` +
