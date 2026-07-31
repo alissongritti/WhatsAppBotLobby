@@ -5,6 +5,7 @@ node_modules/
 .wwebjs_auth/
 .wwebjs_cache/
 wwebjs_cache/
+.wwebjs_auth_location/
 
 # Banco de dados local 
 nicks.json
@@ -20,3 +21,10 @@ GEMINI.md
 # Banco de dados SQLite
 *.sqlite
 *.sqlite-journal
+
+# Processos e logs do PM2
+logs/
+*.log
+
+# Temp/Cache do Puppeteer
+.cache/

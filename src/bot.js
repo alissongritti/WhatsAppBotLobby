@@ -45,63 +45,105 @@ function initBot() {
     console.log("⏰ Alarme da Hora H ativado com sucesso!");
   });
 
-  client.on("message_create", async (msg) => {
+  client.on("message", async (msg) => {
+    // 1. FILTRO DE SEGURANÇA INICIAL
+    if (!msg || !msg.from || msg.isStatus || msg.fromMe || !msg.body) return;
+
+    // 2. Ignora mensagens antigas (mais de 30 min)
     const tempoAtual = Math.floor(Date.now() / 1000);
-    const idadeDaMensagem = tempoAtual - msg.timestamp;
+    const idadeDaMensagem = tempoAtual - (msg.timestamp || 0);
     if (idadeDaMensagem > 1800) return;
 
     try {
-      const chat = await msg.getChat();
-      const contact = await msg.getContact();
-      const senderId = contact.id._serialized;
+      // 3. Extração segura de IDs e remetente
+      const isGroup = msg.from.endsWith("@g.us");
+      const groupId = msg.from;
+
+      const rawSender = isGroup ? msg.author || msg.from : msg.from;
+      if (!rawSender) return;
+
+      const senderId = rawSender.includes("@")
+        ? rawSender
+        : `${rawSender}@c.us`;
+
+      // 4. Fallback seguro para o objeto Chat
+      let chat;
+      try {
+        chat = await msg.getChat();
+      } catch (e) {
+        chat = {
+          id: { _serialized: groupId },
+          isGroup: isGroup,
+          name: isGroup ? "Grupo CS2" : "Privado",
+          sendMessage: (text, options) =>
+            client.sendMessage(groupId, text, options),
+        };
+      }
 
       // ─── 1. DM — só o owner tem acesso ──────────────────────────────────────
-      if (!chat.isGroup) {
-        if (senderId !== ADMIN_WA_ID) return; // Silêncio absoluto
+      if (!isGroup) {
+        if (senderId !== ADMIN_WA_ID) {
+          return; // Ignora DM de estranhos sem logar nada
+        }
 
         const context = await parseMessage(msg, chat);
-        if (!context) return;
+        if (!context) return; // Não é comando, ignora
 
+        console.log("🚀 Executando comando na DM...");
         await router({
           ...context,
           nomeGrupo: "Privado",
           isGroup: false,
-          client, // passa o client para evitar referência circular no ownerCommands
+          client,
         });
         return;
       }
 
       // ─── 2. FILTRO BARATO: É um comando válido? ──────────────────────────────
       const context = await parseMessage(msg, chat);
-      if (!context) return;
+      if (!context) return; // Não é comando (ex: conversa normal do grupo)
 
-      // ─── 3. FILTRO CARO: O grupo tem autorização? ────────────────────────────
-      const groupId = chat.id._serialized;
+      // ─── 3. FILTRO CARO: O grupo tem autorização? (DESATIVADO TEMPORARIAMENTE) ─
+      /*
       const autorizado = await isGrupoAutorizado(groupId);
 
       if (!autorizado) {
+        console.log(
+          `🚨 Grupo NÃO autorizado: ${chat.name || groupId} (${groupId})`,
+        );
+
         if (ADMIN_WA_ID && !gruposJaNotificados.has(groupId)) {
           gruposJaNotificados.add(groupId);
           try {
-            console.log(`🚨 Grupo não autorizado: ${chat.name} | ${groupId}`);
+            // Sanitiza o número do Admin para evitar o erro 'No LID for user'
+            const rawAdmin = ADMIN_WA_ID.replace(/\D/g, "");
+            const adminFormatted = rawAdmin ? `${rawAdmin}@c.us` : ADMIN_WA_ID;
+
             await client.sendMessage(
-              ADMIN_WA_ID,
+              adminFormatted,
               `🚨 *Tentativa de uso não autorizado!*\n\n` +
-                `📍 *Grupo:* ${chat.name}\n` +
-                `🔑 *ID:* ${groupId}\n\n` +
-                `Para liberar, responda:\n*!aprovar ${groupId}*`,
+                `📍 *Grupo:* ${chat.name || "Sem Nome"}\n` +
+                `🔑 *ID:* \`${groupId}\`\n\n` +
+                `Para liberar, responda nesta DM:\n*!aprovar ${groupId}*`,
+            );
+            console.log(
+              `📩 Notificação enviada ao Admin sobre o grupo ${groupId}`,
             );
           } catch (e) {
             console.error("⚠️ Erro ao notificar admin:", e.message);
           }
         }
         return;
-      }
+      } */
 
       // ─── 4. Verifica se é superadmin ─────────────────────────────────────────
       const isSuperAdmin = await ehSuperAdmin(senderId);
 
       // ─── 5. Execução do Comando ──────────────────────────────────────────────
+      console.log(
+        `🚀 Executando comando [${context.comando}] no grupo: ${chat.name || groupId}`,
+      );
+
       await router({
         ...context,
         nomeGrupo: chat.name || groupId,
@@ -110,13 +152,16 @@ function initBot() {
         client,
       });
     } catch (err) {
-      console.error("⚠️ Erro ao processar mensagem:", err.message);
+      console.error(
+        "⚠️ Erro ao processar mensagem:",
+        err?.stack || err?.message || err,
+      );
     }
   });
 
   if (!ADMIN_WA_ID) {
     console.warn(
-      "⚠️  ADMIN_WA_ID não definido! Aprovação de grupos desativada.",
+      "⚠️ ADMIN_WA_ID não definido! Aprovação de grupos desativada.",
     );
   }
 

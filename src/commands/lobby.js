@@ -27,19 +27,16 @@ async function criarLobby({
   let titulo = isMix ? "MIX 5X5" : "LOBBY";
 
   // --- 1. PARSE DE PARÂMETROS ---
-  // parseDateHorario varre todos os tokens, data e hora podem estar em qualquer posição
   if (parametro) {
     const { data, horario: h, tituloTokens } = parseDateHorario(parametro);
 
     dataInformada = data;
     horario = h || "";
 
-    // O título é tudo que não era data nem hora
-    if (tituloTokens.length > 0) {
+    if (tituloTokens && tituloTokens.length > 0) {
       titulo = tituloTokens.join(" ").toUpperCase();
     }
 
-    // Valida se a data não é retroativa
     if (dataInformada && !dataEFutura(dataInformada)) {
       await msg.reply(
         `⚠️ A data *${dataInformada}* já passou. Informe uma data válida.`,
@@ -47,7 +44,6 @@ async function criarLobby({
       return;
     }
 
-    // Valida o limite de 7 dias
     if (dataInformada && diasAteData(dataInformada) > LIMITE_DIAS_AGENDAMENTO) {
       await msg.reply(
         `📅 Calma, organizadão! Só é possível agendar com até *${LIMITE_DIAS_AGENDAMENTO} dias* de antecedência.\nTente uma data mais próxima.`,
@@ -59,7 +55,6 @@ async function criarLobby({
   // --- 2. NORMALIZAÇÃO DE DATA ---
   const dataFinal = dataInformada || dataDeHoje();
 
-  // Bloqueia criação apenas com data, sem horário definido
   if (dataInformada && !horario) {
     await msg.reply(
       `⚠️ Você informou a data *${dataInformada}* mas esqueceu o horário.\n` +
@@ -103,7 +98,9 @@ async function criarLobby({
   }
 
   let textoAviso = "";
-  const lobbiesAbertas = await partidaService.getPartidasAbertas(groupId);
+  // 🛡️ Fallback: Garante que lobbiesAbertas é sempre um array
+  const lobbiesAbertas =
+    (await partidaService.getPartidasAbertas(groupId)) || [];
 
   for (const lobby of lobbiesAbertas) {
     const numTitulares = await partidaService.contarTitulares(lobby.id);
@@ -176,21 +173,35 @@ async function criarLobby({
   texto += await gerarListaTexto(partidaId, maxPlayers, hojeStr);
   texto += `\nMande *!eu ${numeroLobby}* para entrar!`;
 
-  await marcarTodos(chat, texto);
+  // 🛡️ Resposta Segura sem quebrar se o chat/participants falhar no Puppeteer
+  try {
+    if (chat && chat.participants && Array.isArray(chat.participants)) {
+      await marcarTodos(chat, texto);
+    } else {
+      await msg.reply(texto);
+    }
+  } catch (e) {
+    await msg.reply(texto);
+  }
 
-  const suplentesOutras = await partidaService.getSuplentesDeOutrasPartidas(
-    groupId,
-    partidaId,
-  );
+  // 🛡️ Busca de suplentes protegida com fallback || []
+  const suplentesOutras =
+    (await partidaService.getSuplentesDeOutrasPartidas(groupId, partidaId)) ||
+    [];
+
   if (suplentesOutras.length > 0) {
     const aviso =
       `👀 *Atenção Reservas!*\nA ${tipo} #${numeroLobby} acabou de ser criada com vagas para titulares!\n\n` +
       `Quer trocar de fila?\n*!sair* — sair da atual\n*!eu ${numeroLobby}* — entrar nessa`;
-    await mencionarJogadores(
-      chat,
-      aviso,
-      suplentesOutras.map((s) => s.jogador_id),
-    );
+    try {
+      await mencionarJogadores(
+        chat,
+        aviso,
+        suplentesOutras.map((s) => s.jogador_id),
+      );
+    } catch (e) {
+      console.log("⚠️ Não foi possível mencionar suplentes:", e.message);
+    }
   }
 }
 

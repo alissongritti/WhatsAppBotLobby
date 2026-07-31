@@ -3,33 +3,40 @@ const { getDb } = require("../database");
 // ─── Whitelist (Aprovação de Uso) ─────────────────────────────────────────
 
 async function isGrupoAutorizado(groupId) {
+  if (!groupId) return false;
+
   const db = getDb();
-  const row = await db.get(
-    "SELECT autorizado FROM grupos WHERE id_grupo = ? AND autorizado = 1",
-    [groupId],
-  );
+  const cleanId = groupId.trim();
+
+  const sql = `SELECT id_grupo FROM grupos_autorizados WHERE id_grupo = ?`;
+  const row = await db.get(sql, [cleanId]);
+
   return !!row;
 }
 
 async function autorizarGrupo(groupId) {
+  if (!groupId) return false;
+
   const db = getDb();
-  await db.run(
-    `INSERT INTO grupos (id_grupo, autorizado) VALUES (?, 1)
-     ON CONFLICT(id_grupo) DO UPDATE SET autorizado = 1`,
-    [groupId],
-  );
+  const cleanId = groupId.trim();
+
+  const sql = `INSERT OR REPLACE INTO grupos_autorizados (id_grupo, criado_em) VALUES (?, DATETIME('now'))`;
+  await db.run(sql, [cleanId]);
+  return true;
 }
 
 async function revogarGrupo(groupId) {
+  if (!groupId) return false;
+
   const db = getDb();
-  await db.run("UPDATE grupos SET autorizado = 0 WHERE id_grupo = ?", [groupId]);
+  const cleanId = groupId.trim();
+
+  await db.run("DELETE FROM grupos_autorizados WHERE id_grupo = ?", [cleanId]);
 }
 
 async function getGruposAutorizados() {
   const db = getDb();
-  return db.all(
-    "SELECT id_grupo FROM grupos WHERE autorizado = 1",
-  );
+  return await db.all("SELECT id_grupo FROM grupos_autorizados");
 }
 
 // ─── Discord (Link do Grupo) ──────────────────────────────────────────────
@@ -38,7 +45,7 @@ async function obterDiscord(groupId) {
   const db = getDb();
   const row = await db.get(
     "SELECT link_discord FROM grupos WHERE id_grupo = ?",
-    [groupId],
+    [groupId.trim()],
   );
   return row ? row.link_discord : null;
 }
@@ -48,7 +55,7 @@ async function setDiscord(groupId, link) {
   await db.run(
     `INSERT INTO grupos (id_grupo, link_discord) VALUES (?, ?)
      ON CONFLICT(id_grupo) DO UPDATE SET link_discord = ?`,
-    [groupId, link, link],
+    [groupId.trim(), link, link],
   );
 }
 

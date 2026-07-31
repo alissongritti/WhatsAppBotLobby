@@ -1,11 +1,15 @@
 const fs = require("fs");
 const path = require("path");
+const os = require("os"); // Importa o módulo os
 const partidaService = require("../services/partidaService");
 const grupoService = require("../services/grupoService");
 const adminService = require("../services/adminService");
 
-const LOG_OUT = path.join(process.env.HOME, ".pm2/logs/bot-cs2-out.log");
-const LOG_ERROR = path.join(process.env.HOME, ".pm2/logs/bot-cs2-error.log");
+// Funciona perfeitamente tanto no Linux (VPS) quanto no Windows (PC)
+const homeDir = process.env.HOME || process.env.USERPROFILE || os.homedir();
+
+const LOG_OUT = path.join(homeDir, ".pm2/logs/bot-cs2-out.log");
+const LOG_ERROR = path.join(homeDir, ".pm2/logs/bot-cs2-error.log");
 const LINHAS_DEFAULT = 20;
 
 async function statusGlobal({ msg, client }) {

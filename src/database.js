@@ -50,6 +50,12 @@ async function iniciarBanco() {
       link_discord TEXT
     );
 
+    -- 🛡️ Tabela essencial para a whitelist do bot
+    CREATE TABLE IF NOT EXISTS grupos_autorizados (
+      id_grupo TEXT PRIMARY KEY,
+      criado_em DATETIME DEFAULT (datetime('now', 'localtime'))
+    );
+
     CREATE TABLE IF NOT EXISTS hltv_jogos (
       id            INTEGER PRIMARY KEY,
       time1         TEXT NOT NULL,
