@@ -104,7 +104,6 @@ function initBot() {
       if (!context) return; // Não é comando (ex: conversa normal do grupo)
 
       // ─── 3. FILTRO CARO: O grupo tem autorização? (DESATIVADO TEMPORARIAMENTE) ─
-      /*
       const autorizado = await isGrupoAutorizado(groupId);
 
       if (!autorizado) {
@@ -134,7 +133,7 @@ function initBot() {
           }
         }
         return;
-      } */
+      }
 
       // ─── 4. Verifica se é superadmin ─────────────────────────────────────────
       const isSuperAdmin = await ehSuperAdmin(senderId);
